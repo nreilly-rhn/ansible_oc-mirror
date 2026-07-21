@@ -4,3 +4,9 @@
 # Override in group_vars/oc_mirror.yml.
 oc_mirror_workdir: /opt/oc-mirror
 oc_mirror_archive_path: /var/tmp/oc-mirror.tar.gz
+
+# ImageSetConfiguration operator catalogs / additional images.
+# Prefer overriding via group_vars/oc_mirror.yml (mirror_set_config).
+mirror_set_config:
+  catalogs: []
+  additionalImages: []

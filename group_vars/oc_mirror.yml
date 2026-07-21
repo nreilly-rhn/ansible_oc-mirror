@@ -1,0 +1,58 @@
+---
+# Shared by connected_mirror and disconnected_mirror (via parent group oc_mirror).
+oc_mirror_workdir: /opt/oc-mirror
+oc_mirror_archive_path: /var/tmp/oc-mirror.tar.gz
+openshift_version: 4.22.4
+quay_workdir: /opt/quay-mirror
+mirror_set_config:
+  catalogs:
+    - name: registry.redhat.io/redhat/redhat-operator-index:v4.22
+      full: false
+      packages:
+        - name: cincinnati-operator
+          channels:
+            - name: v1
+              minVersion: 5.0.3
+              maxVersion: 5.0.3
+        - name: kubevirt-hyperconverged
+          channels:
+            - name: stable
+              minVersion: v4.22.2
+              maxVersion: v4.22.2
+        - name: mtv-operator
+          channels:
+            - name: release-v2.12
+              minVersion: v2.12.1
+              maxVersion: v2.12.2
+        - name: kubernetes-nmstate-operator
+          channels:
+            - name: stable
+              minVersion: 4.22.0-202607090022
+              maxVersion: 4.22.0-202607090022
+        - name: metallb-operator
+          channels:
+            - name: stable
+              minVersion: v4.22.0-202607090022
+              maxVersion: v4.22.0-202607090022
+        - name: node-healthcheck-operator
+          channels:
+            - name: stable
+              minVersion: v0.12.0
+              maxVersion: v0.12.0
+        - name: node-maintenance-operator
+          channels:
+            - name: stable
+              minVersion: v5.7.0
+              maxVersion: v5.7.0
+        - name: local-storage-operator
+          channels:
+            - name: stable
+              minVersion: 4.22.0-202607010254
+              maxVersion: 4.22.0-202607010254
+        - name: cluster-observability-operator
+          channels:
+            - name: stable
+              minVersion: 1.5.1
+              maxVersion: 1.5.1
+  additionalImages:
+    - name: registry.redhat.io/ubi9/ubi:latest

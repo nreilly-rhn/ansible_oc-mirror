@@ -6,58 +6,38 @@ mirror:
     architectures:
       - amd64
     channels:
-      - name: stable-4.22
+      - name: stable-{{ openshift_version.split('.')[0:2] | join('.') }}
         minVersion: {{ openshift_version }}
         maxVersion: {{ openshift_version }}
     graph: true
+{% if mirror_set_config.catalogs | default([]) | length > 0 %}
   operators:
-    - catalog: registry.redhat.io/redhat/redhat-operator-index:v4.22
-      full: false
+{% for catalog in mirror_set_config.catalogs %}
+    - catalog: {{ catalog.name }}
+      full: {{ catalog.full | default(false) | bool | lower }}
+{% if catalog.packages | default([]) | length > 0 %}
       packages:
-        - name: cincinnati-operator
+{% for package in catalog.packages %}
+        - name: {{ package.name }}
+{% if package.channels | default([]) | length > 0 %}
           channels:
-            - name: v1
-              minVersion: 5.0.3
-              maxVersion: 5.0.3
-        - name: kubevirt-hyperconverged
-          channels:
-            - name: stable
-              minVersion: v4.22.2
-              maxVersion: v4.22.2
-        - name: mtv-operator
-          channels:
-            - name: release-v2.12
-              minVersion: v2.12.1
-              maxVersion: v2.12.2
-        - name: kubernetes-nmstate-operator
-          channels:
-            - name: stable
-              minVersion: 4.22.0-202607090022
-              maxVersion: 4.22.0-202607090022
-        - name: metallb-operator
-          channels:
-            - name: stable
-              minVersion: v4.22.0-202607090022
-              maxVersion: v4.22.0-202607090022
-        - name: node-healthcheck-operator
-          channels:
-            - name: stable
-              minVersion: v0.12.0
-              maxVersion: v0.12.0
-        - name: node-maintenance-operator
-          channels:
-            - name: stable
-              minVersion: v5.7.0
-              maxVersion: v5.7.0
-        - name: local-storage-operator
-          channels:
-            - name: stable
-              minVersion: 4.22.0-202607010254
-              maxVersion: 4.22.0-202607010254
-        - name: cluster-observability-operator
-          channels:
-            - name: stable
-              minVersion: 1.5.1
-              maxVersion: 1.5.1
+{% for channel in package.channels %}
+            - name: {{ channel.name }}
+{% if channel.minVersion is defined %}
+              minVersion: {{ channel.minVersion }}
+{% endif %}
+{% if channel.maxVersion is defined %}
+              maxVersion: {{ channel.maxVersion }}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% if mirror_set_config.additionalImages | default([]) | length > 0 %}
   additionalImages:
-    - name: registry.redhat.io/ubi9/ubi:latest
+{% for image in mirror_set_config.additionalImages %}
+    - name: {{ image.name }}
+{% endfor %}
+{% endif %}
