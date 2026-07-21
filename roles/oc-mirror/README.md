@@ -1,6 +1,6 @@
 # oc-mirror
 
-Ansible role to mirror OpenShift content with **oc-mirror v2** for connected and disconnected lab environments.
+Ansible role to mirror OpenShift content with **oc-mirror v2** for connected and disconnected environments.
 
 ## Purpose
 
@@ -22,7 +22,7 @@ Both groups are children of `oc_mirror` so they share `group_vars/oc_mirror.yml`
 
 - Ansible 2.14 or later
 - `community.general` (archive/unarchive)
-- Target host packages installed by the role as needed: `gpgme`, `podman`, `jq`, `openssl`
+- Target host packages installed by the role as needed: `podman`, `jq`, `openssl`
 - Outbound HTTPS on the **connected** host (OpenShift clients + image pulls)
 - Outbound HTTPS on the **disconnected** host only to download `mirror-registry` (unless already cached under `/var/tmp`)
 - Vault file with Red Hat / Quay credentials (see [Secrets](#secrets))
@@ -71,7 +71,7 @@ When both `quay_sslCert` and `quay_sslKey` are set, they are written to `{{ quay
 
 ### Connected (mirrorToDisk)
 
-1. Install `gpgme` and OpenShift client / oc-mirror binaries into `oc_mirror_workdir`.
+1. Install OpenShift client / oc-mirror binaries into `oc_mirror_workdir`.
 2. Render `ImageSetConfiguration.yaml` from the template.
 3. Write `redhat-auth.json` from `redhat_pull_secret`.
 4. Run `oc-mirror --v2 … file://{{ oc_mirror_workdir }}` when the ImageSet config changes.

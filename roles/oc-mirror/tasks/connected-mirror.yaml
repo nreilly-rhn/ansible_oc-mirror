@@ -6,10 +6,13 @@
 #     state: present
 
 - name: Create oc-mirror workspace
+  become: true
   ansible.builtin.file:
     path: "{{ oc_mirror_workdir }}"
     state: directory
     mode: "0755"
+    owner: "{{ ansible_user | default(omit) }}"
+    group: "{{ ansible_user | default(omit) }}"
 
 - name: Install OpenShift binaries
   ansible.builtin.include_tasks:
@@ -43,6 +46,7 @@
   register: mirror_task
   retries: 2
   delay: 10
+  changed_when: mirror_task.rc == 0
   until: mirror_task is not failed
 
 - name: Create a tarball for transfer

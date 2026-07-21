@@ -9,8 +9,11 @@
 ######################################################
 - name: Create Mirror
   hosts: connected_mirror
+  become: true
   tasks:
     - name: Populate Mirror
       ansible.builtin.include_role:
         name: "../roles/oc-mirror"
         tasks_from: connected-mirror
+        apply:
+          become: true
