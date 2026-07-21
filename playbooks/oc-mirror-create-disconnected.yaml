@@ -1,0 +1,31 @@
+---
+######################################################
+# /usr/bin/ansible-playbook \
+# playbooks/oc-mirror-create-disconnected.yaml \
+# -l mirror-int.lab.naramajac.xyz \
+# -e @vault/quay_secrets.yaml \
+# --vault-password-file \
+# /home/nreilly/tmp/.vault/.vault_password
+######################################################
+
+- name: Create Mirror
+  hosts: disconnected_mirror
+  become: true
+  tasks:
+    - name: Check if mirror is up
+      ansible.builtin.uri:
+        url: https://{{ ansible_facts['fqdn'] }}:8443/health/instance
+        validate_certs: false
+      register: url_result
+      ignore_errors: true
+
+    - name: Install Quay
+      ansible.builtin.include_role:
+        name: "../roles/oc-mirror"
+        tasks_from: quay-mirror
+      when: url_result.status != 200
+
+    - name: Populate Mirror
+      ansible.builtin.include_role:
+        name: "../roles/oc-mirror"
+        tasks_from: disconnected-mirror

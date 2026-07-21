@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: MIT-0
+---
+# Shared workspace for connected (disk mirror) and disconnected (push to Quay).
+# Override in group_vars/oc_mirror.yml.
+oc_mirror_workdir: /opt/oc-mirror
+oc_mirror_archive_path: /var/tmp/oc-mirror.tar.gz

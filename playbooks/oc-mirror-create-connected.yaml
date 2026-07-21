@@ -1,0 +1,16 @@
+---
+######################################################
+# /usr/bin/ansible-playbook \
+# playbooks/oc-mirror-create-connected.yaml \
+# -l registry.lab.naramajac.xyz \
+# -e @vault/quay_secrets.yaml \
+# --vault-password-file \
+# /home/nreilly/tmp/.vault/.vault_password
+######################################################
+- name: Create Mirror
+  hosts: connected_mirror
+  tasks:
+    - name: Populate Mirror
+      ansible.builtin.include_role:
+        name: "../roles/oc-mirror"
+        tasks_from: connected-mirror

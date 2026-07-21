@@ -1,0 +1,84 @@
+---
+- name: Ensure oc-mirror workspace exists
+  ansible.builtin.file:
+    path: "{{ oc_mirror_workdir }}"
+    state: directory
+    mode: "0755"
+
+- name: Check whether oc-mirror workspace is populated
+  ansible.builtin.stat:
+    path: "{{ oc_mirror_workdir }}/ImageSetConfiguration.yaml"
+  register: oc_mirror_workspace
+
+- name: Check for transfer archive
+  ansible.builtin.stat:
+    path: "{{ oc_mirror_archive_path }}"
+  register: oc_mirror_archive
+  when: not oc_mirror_workspace.stat.exists
+
+- name: Fail when workspace and archive are both missing
+  ansible.builtin.fail:
+    msg: >-
+      No mirror workspace at {{ oc_mirror_workdir }} and no archive at
+      {{ oc_mirror_archive_path }}.
+  when:
+    - not oc_mirror_workspace.stat.exists
+    - not oc_mirror_archive.stat.exists
+
+- name: Restore workspace from transfer archive
+  ansible.builtin.unarchive:
+    src: "{{ oc_mirror_archive_path }}"
+    dest: "{{ oc_mirror_workdir | dirname }}"   # /opt, not /opt/oc-mirror
+    remote_src: true
+  when:
+    - not oc_mirror_workspace.stat.exists
+    - oc_mirror_archive.stat.exists
+
+- name: Login to the Mirror
+  ansible.builtin.command:
+    argv:
+      - podman
+      - login
+      - --username
+      - "{{ quay_user }}"
+      - --password
+      - "{{ quay_password }}"
+      - --authfile
+      - "{{ oc_mirror_workdir }}/mirror-auth.json"
+      - --tls-verify=false
+      - "{{ ansible_facts['fqdn'] }}:8443"
+    creates: "{{ oc_mirror_workdir }}/mirror-auth.json"
+  no_log: true
+
+- name: Create RedHat pull secret
+  ansible.builtin.copy:
+    dest: "{{ oc_mirror_workdir }}/redhat-auth.json"
+    content: "{{ redhat_pull_secret }}"
+    mode: "0600"
+  no_log: true
+
+- name: Combine auth files
+  ansible.builtin.shell:
+    chdir: "{{ oc_mirror_workdir }}"
+    cmd: >-
+      jq -s '{auths: (.[0].auths + .[1].auths)}'
+      mirror-auth.json redhat-auth.json > auth.json
+    creates: "{{ oc_mirror_workdir }}/auth.json"
+
+- name: Run oc-mirror
+  ansible.builtin.command:
+    argv:
+      - "{{ oc_mirror_workdir }}/oc-mirror"
+      - --v2
+      - --from
+      - "file://{{ oc_mirror_workdir }}"
+      - --config
+      - "{{ oc_mirror_workdir }}/ImageSetConfiguration.yaml"
+      - --authfile
+      - "{{ oc_mirror_workdir }}/auth.json"
+      - --dest-tls-verify=false
+      - "docker://{{ ansible_facts['fqdn'] }}:8443"
+  retries: 10
+  delay: 10
+  register: mirror_task
+  until: mirror_task is not failed

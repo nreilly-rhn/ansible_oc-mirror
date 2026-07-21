@@ -1,0 +1,11 @@
+.ansible/
+.secrets.yaml
+.setup_secrets.yaml
+./roles/aap/files/aap-manifest.zip
+./roles/aap/files/aap-ssl-cert.pem
+./roles/aap/files/aap-ssl-key.pem
+**/.vault_*.yaml
+**/.vault_setup_secrets.yaml
+**/.vault_secrets.yaml
+**/*.pem
+./vault/*

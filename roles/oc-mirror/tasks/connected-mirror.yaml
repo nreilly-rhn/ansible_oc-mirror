@@ -1,0 +1,54 @@
+---
+# - name: Install RPMs
+#   become: true
+#   ansible.builtin.package:
+#     name: gpgme
+#     state: present
+
+- name: Create oc-mirror workspace
+  ansible.builtin.file:
+    path: "{{ oc_mirror_workdir }}"
+    state: directory
+    mode: "0755"
+
+- name: Install OpenShift binaries
+  ansible.builtin.include_tasks:
+    file: install-oc-binaries.yaml
+
+- name: Copy ImageSetConfiguration
+  ansible.builtin.template:
+    src: ImageSetConfiguration.yaml.j2
+    dest: "{{ oc_mirror_workdir }}/ImageSetConfiguration.yaml"
+    mode: "0644"
+  register: mirror_config
+
+- name: Create Red Hat pull secret
+  ansible.builtin.copy:
+    dest: "{{ oc_mirror_workdir }}/redhat-auth.json"
+    content: "{{ redhat_pull_secret }}"
+    mode: "0600"
+
+- name: Mirror content to disk with oc-mirror v2
+  when: mirror_config.changed or (force_oc_mirror | default(false) | bool)
+  ansible.builtin.command:
+    chdir: "{{ oc_mirror_workdir }}"
+    argv:
+      - ./oc-mirror
+      - --v2
+      - --config
+      - ImageSetConfiguration.yaml
+      - --authfile
+      - redhat-auth.json
+      - file://{{ oc_mirror_workdir }}
+  register: mirror_task
+  retries: 2
+  delay: 10
+  until: mirror_task is not failed
+
+- name: Create a tarball for transfer
+  community.general.archive:
+    path:
+      - "{{ oc_mirror_workdir }}"
+    mode: "0664"
+    format: gz
+    dest: "{{ oc_mirror_archive_path }}"

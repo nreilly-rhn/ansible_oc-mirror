@@ -1,0 +1,99 @@
+---
+- name: Install packages
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - openssl
+    - bash-completion
+    - ansible-core
+    - podman
+
+- name: Create Directories
+  ansible.builtin.file:
+    path: "{{ quay_workdir }}"
+    state: directory
+    mode: "0775"
+
+- name: Download the Quay Mirror Registry
+  ansible.builtin.get_url:
+    url: https://developers.redhat.com/content-gateway/file/pub/openshift-v4/clients/mirror-registry/1.3.11/mirror-registry.tar.gz
+    dest: /var/tmp/mirror-registry.tar.gz
+    mode: "0644"
+
+- name: Extract the Quay Mirror Registry
+  ansible.builtin.unarchive:
+    src: /var/tmp/mirror-registry.tar.gz
+    dest: /var/tmp/
+    remote_src: true
+    creates: /var/tmp/mirror-registry
+
+- name: Validate custom TLS variables are paired
+  ansible.builtin.assert:
+    that:
+      - (quay_ssl_cert_set | bool) == (quay_ssl_key_set | bool)
+    fail_msg: >-
+      Set both quay_sslCert and quay_sslKey in the vault, or omit both
+      to let mirror-registry generate certificates.
+  vars:
+    quay_ssl_cert_set: "{{ quay_sslCert is defined and quay_sslCert | length > 0 }}"
+    quay_ssl_key_set: "{{ quay_sslKey is defined and quay_sslKey | length > 0 }}"
+
+- name: Deploy custom TLS material for Quay
+  when: quay_ssl_custom | bool
+  vars:
+    quay_ssl_custom: >-
+      {{
+        (quay_sslCert is defined and quay_sslCert | length > 0)
+        and (quay_sslKey is defined and quay_sslKey | length > 0)
+      }}
+  block:
+    - name: Copy Quay TLS certificate
+      ansible.builtin.copy:
+        dest: "{{ quay_workdir }}/ssl.cert"
+        content: "{{ quay_sslCert }}"
+        mode: "0644"
+
+    - name: Copy Quay TLS private key
+      ansible.builtin.copy:
+        dest: "{{ quay_workdir }}/ssl.key"
+        content: "{{ quay_sslKey }}"
+        mode: "0600"
+
+- name: Build mirror-registry install arguments
+  ansible.builtin.set_fact:
+    quay_install_argv: "{{ quay_install_argv_base + quay_install_argv_ssl }}"
+  vars:
+    quay_ssl_custom: >-
+      {{
+        (quay_sslCert is defined and quay_sslCert | length > 0)
+        and (quay_sslKey is defined and quay_sslKey | length > 0)
+      }}
+    quay_install_argv_base:
+      - ./mirror-registry
+      - install
+      - --targetHostname
+      - "{{ ansible_facts['ansible_fqdn'] }}"
+      - --quayRoot
+      - "{{ quay_workdir }}"
+      - --quayHostname
+      - "{{ ansible_facts['ansible_fqdn'] }}:8443"
+      - --initUser
+      - "{{ quay_user }}"
+      - --initPassword
+      - "{{ quay_password }}"
+    quay_install_argv_ssl: >-
+      {{
+        [
+          '--sslCert', quay_workdir ~ '/ssl.cert',
+          '--sslKey', quay_workdir ~ '/ssl.key',
+        ]
+        if quay_ssl_custom | bool
+        else []
+      }}
+
+- name: Install Quay Mirror Registry
+  ansible.builtin.command:
+    chdir: /var/tmp
+    argv: "{{ quay_install_argv }}"
+    creates: "{{ quay_workdir }}/quay-config"

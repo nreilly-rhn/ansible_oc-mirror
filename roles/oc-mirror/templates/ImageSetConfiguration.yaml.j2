@@ -1,0 +1,63 @@
+kind: ImageSetConfiguration
+apiVersion: mirror.openshift.io/v2alpha1
+mirror:
+  platform:
+    kubeVirtContainer: true
+    architectures:
+      - amd64
+    channels:
+      - name: stable-4.22
+        minVersion: {{ openshift_version }}
+        maxVersion: {{ openshift_version }}
+    graph: true
+  operators:  operators:
+    - catalog: registry.redhat.io/redhat/redhat-operator-index:v4.22
+      full: false
+      packages:
+        - name: cincinnati-operator
+          channels:
+            - name: v1
+              minVersion: 5.0.3
+              maxVersion: 5.0.3
+        - name: kubevirt-hyperconverged
+          channels:
+            - name: stable
+              minVersion: v4.22.2
+              maxVersion: v4.22.2
+        - name: mtv-operator
+          channels:
+            - name: release-v2.12
+              minVersion: v2.12.1
+              maxVersion: v2.12.2
+        - name: kubernetes-nmstate-operator
+          channels:
+            - name: stable
+              minVersion: 4.22.0-202607090022
+              maxVersion: 4.22.0-202607090022
+        - name: metallb-operator
+          channels:
+            - name: stable
+              minVersion: v4.22.0-202607090022
+              maxVersion: v4.22.0-202607090022
+        - name: node-healthcheck-operator
+          channels:
+            - name: stable
+              minVersion: v0.12.0
+              maxVersion: v0.12.0
+        - name: node-maintenance-operator
+          channels:
+            - name: stable
+              minVersion: v5.7.0
+              maxVersion: v5.7.0
+        - name: local-storage-operator
+          channels:
+            - name: stable
+              minVersion: 4.22.0-202607010254
+              maxVersion: 4.22.0-202607010254
+        - name: cluster-observability-operator
+          channels:
+            - name: stable
+              minVersion: 1.5.1
+              maxVersion: 1.5.1
+  additionalImages:
+    - name: registry.redhat.io/ubi9/ubi:latest

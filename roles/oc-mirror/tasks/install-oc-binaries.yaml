@@ -1,0 +1,36 @@
+---
+- name: Check for oc-mirror binary
+  ansible.builtin.stat:
+    path: "{{ oc_mirror_workdir }}/oc-mirror"
+  register: oc_mirror_binary
+
+- name: Download and install OpenShift binaries
+  when: not oc_mirror_binary.stat.exists
+  block:
+    - name: Download OpenShift client archives
+      ansible.builtin.uri:
+        url: https://mirror.openshift.com/pub/openshift-v4/clients/ocp/{{ openshift_version }}/{{ item }}.tar.gz
+        dest: /var/tmp/
+      loop:
+        - oc-mirror
+        - openshift-client-linux
+
+    - name: Extract binaries
+      ansible.builtin.unarchive:
+        src: /var/tmp/{{ item }}.tar.gz
+        dest: "{{ oc_mirror_workdir }}/"
+        remote_src: true
+        mode: "0755"
+        exclude:
+          - README.md
+      loop:
+        - oc-mirror
+        - openshift-client-linux
+
+    - name: Cleanup the tarballs
+      ansible.builtin.file:
+        path: /var/tmp/{{ item }}.tar.gz
+        state: absent
+      loop:
+        - oc-mirror
+        - openshift-client-linux
