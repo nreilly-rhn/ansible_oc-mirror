@@ -17,6 +17,8 @@ connected_mirror:
 
 disconnected_mirror:
   hosts:
-    mirror-int.lab.naramajac.xyz:
+    registry-int.lab.naramajac.xyz:
+      ansible_host: 172.16.0.226
       ansible_user: aap
+      ansible_ssh_private_key_file: ~/.ssh/id_ed25519
       ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"

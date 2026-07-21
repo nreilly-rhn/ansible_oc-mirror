@@ -23,9 +23,13 @@
       ansible.builtin.include_role:
         name: "../roles/oc-mirror"
         tasks_from: quay-mirror
+        apply:
+          become: true
       when: url_result.status != 200
 
     - name: Populate Mirror
       ansible.builtin.include_role:
         name: "../roles/oc-mirror"
         tasks_from: disconnected-mirror
+        apply:
+          become: true

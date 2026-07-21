@@ -28,7 +28,7 @@
 - name: Restore workspace from transfer archive
   ansible.builtin.unarchive:
     src: "{{ oc_mirror_archive_path }}"
-    dest: "{{ oc_mirror_workdir | dirname }}"   # /opt, not /opt/oc-mirror
+    dest: "{{ oc_mirror_workdir | dirname }}"
     remote_src: true
   when:
     - not oc_mirror_workspace.stat.exists

@@ -73,11 +73,11 @@
       - ./mirror-registry
       - install
       - --targetHostname
-      - "{{ ansible_facts['ansible_fqdn'] }}"
+      - "{{ ansible_facts['fqdn'] }}"
       - --quayRoot
       - "{{ quay_workdir }}"
       - --quayHostname
-      - "{{ ansible_facts['ansible_fqdn'] }}:8443"
+      - "{{ ansible_facts['fqdn'] }}:8443"
       - --initUser
       - "{{ quay_user }}"
       - --initPassword
