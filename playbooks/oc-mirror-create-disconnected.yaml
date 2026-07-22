@@ -1,11 +1,11 @@
 ---
 ######################################################
 # /usr/bin/ansible-playbook \
-# playbooks/oc-mirror-create-disconnected.yaml \
-# -l mirror-int.lab.naramajac.xyz \
-# -e @vault/quay_secrets.yaml \
-# --vault-password-file \
-# /home/nreilly/tmp/.vault/.vault_password
+#   playbooks/oc-mirror-create-disconnected.yaml \
+#   -i inventory.yaml \
+#   -e @vault/quay_secrets.yaml \
+#   --vault-password-file \
+#   .vault_password
 ######################################################
 
 - name: Create Mirror

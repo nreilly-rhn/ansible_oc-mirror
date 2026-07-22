@@ -78,8 +78,10 @@
       - "{{ oc_mirror_workdir }}/auth.json"
       - --dest-tls-verify=false
       - "docker://{{ ansible_facts['fqdn'] }}:8443"
+  register: mirror_task
+  async: 7200
+  poll: 60
   retries: 10
   delay: 10
   changed_when: mirror_task.rc == 0
-  register: mirror_task
   until: mirror_task is not failed
