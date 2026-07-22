@@ -14,6 +14,7 @@
       loop:
         - oc-mirror
         - openshift-client-linux
+        - openshift-install-linux
 
     - name: Extract binaries
       ansible.builtin.unarchive:
@@ -26,6 +27,7 @@
       loop:
         - oc-mirror
         - openshift-client-linux
+        - openshift-install-linux
 
     - name: Cleanup the tarballs
       ansible.builtin.file:
@@ -34,3 +36,4 @@
       loop:
         - oc-mirror
         - openshift-client-linux
+        - openshift-install-linux
