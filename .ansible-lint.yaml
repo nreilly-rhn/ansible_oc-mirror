@@ -1,0 +1,11 @@
+---
+profile: production
+exclude_paths:
+  - .ansible
+  - .git
+  - .vscode
+skip_list:
+  - role-name
+  - no-handler
+  - no-changed-when
+...

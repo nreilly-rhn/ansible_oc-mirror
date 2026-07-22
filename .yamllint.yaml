@@ -1,0 +1,34 @@
+---
+extends: default
+rules:
+  braces:
+    level: error
+    max-spaces-inside: 1
+  brackets:
+    level: error
+    max-spaces-inside: 1
+  colons:
+    level: error
+  commas:
+    level: error
+  comments:
+    require-starting-space: true
+    ignore-shebangs: true
+    min-spaces-from-content: 2
+  comments-indentation: disable
+  document-start: disable
+  empty-lines:
+    level: error
+  hyphens:
+    level: error
+  indentation:
+    level: error
+    spaces: consistent
+    indent-sequences: true
+  line-length:
+    max: 120
+    level: error
+    allow-non-breakable-words: true
+    allow-non-breakable-inline-mappings: true
+  truthy: enable
+...
