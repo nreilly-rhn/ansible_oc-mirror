@@ -10,7 +10,7 @@ oc_mirror:
 connected_mirror:
   hosts:
     registry-ext.lab.naramajac.xyz:
-      ansible_host: 172.16.0.228
+      ansible_host: 172.16.0.225
       ansible_user: aap
       ansible_ssh_private_key_file: ~/.ssh/id_ed25519
       ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
@@ -18,7 +18,7 @@ connected_mirror:
 disconnected_mirror:
   hosts:
     registry-int.lab.naramajac.xyz:
-      ansible_host: 172.16.0.229
+      ansible_host: 172.16.0.224
       ansible_user: aap
       ansible_ssh_private_key_file: ~/.ssh/id_ed25519
       ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
