@@ -2,8 +2,5 @@
 collections:
   - name: ansible.utils
   - name: community.general
-    version: 12.0.1
   - name: community.crypto
-  - name: redhat.openshift
-    version: 5.0.0
 ...
