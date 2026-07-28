@@ -12,7 +12,7 @@
 - name: Create Directories
   become: true
   ansible.builtin.file:
-    path: "{{ quay_workdir }}"
+    path: "{{ items }}"
     state: directory
     mode: "0775"
     owner: "{{ ansible_user | default(omit) }}"
