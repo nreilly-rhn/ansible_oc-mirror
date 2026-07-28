@@ -27,6 +27,9 @@
   when:
     - not oc_mirror_workspace.stat.exists
     - oc_mirror_archive.stat.exists
+- name: Print all available facts
+  ansible.builtin.debug:
+    msg: "{{ ansible_facts.user_dir }}"
 
 - name: Login to the Mirror
   ansible.builtin.command:
@@ -40,7 +43,7 @@
       - --authfile
       - "{{ ansible_facts.user_dir }}/.dockercfg"
       - --tls-verify=false
-      - "{{ ansible_facts['fqdn'] }}:8443"
+      - "{{ ansible_facts.fqdn }}:8443"
     creates: "{{ oc_mirror_workdir }}/mirror-auth.json"
   # no_log: true
 
@@ -69,9 +72,9 @@
       - --config
       - "{{ oc_mirror_workdir }}/ImageSetConfiguration.yaml"
       - --authfile
-      - "{{ ansible_facts.ansible_user_dir }}/.dockercfg"
+      - "{{ ansible_facts.user_dir }}/.dockercfg"
       - --dest-tls-verify=false
-      - "docker://{{ ansible_facts['fqdn'] }}:8443"
+      - "docker://{{ ansible_facts.fqdn }}:8443"
   register: mirror_task
   async: 7200
   poll: 60
