@@ -21,6 +21,10 @@
     - "{{ quay_workdir }}"
     - "{{ oc_mirror_workdir }}"
 
+- name: Check whether oc-mirror workspace is populated
+  ansible.builtin.stat:
+    path: "{{ oc_mirror_workdir }}/ImageSetConfiguration.yaml"
+  register: oc_mirror_workspace
 
 - name: Check for transfer archive
   ansible.builtin.stat:
