@@ -122,6 +122,7 @@
       }}
 
 - name: Install Quay Mirror Registry
+  become: true
   ansible.builtin.command:
     chdir: /var/tmp
     argv: "{{ quay_install_argv }}"
