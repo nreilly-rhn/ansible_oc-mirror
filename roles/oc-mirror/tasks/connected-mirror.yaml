@@ -55,6 +55,8 @@
   community.general.archive:
     path:
       - "{{ oc_mirror_workdir }}"
+    exclude_path:
+      - "{{ oc_mirror_workdir }}/working-dir"
     mode: "0664"
     format: tar
     dest: "{{ oc_mirror_archive_path }}"

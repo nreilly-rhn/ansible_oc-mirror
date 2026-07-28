@@ -16,11 +16,11 @@ openshift_release_image: >-
 openshift_registries_conf_file: >-
   {{ openshift_agent_iso_workdir }}/registries.conf
 
-# Seed auth (Red Hat pull secret from vault). Combined with Quay login for
+# Seed auth with Quay login for
 # oc extract (pull-secret.json). install-config.yaml uses mirror-auth.json only
 # (registry-int credentials).
 openshift_pull_secret: "{{ redhat_pull_secret | default('') }}"
-openshift_pull_secret_file: "{{ openshift_agent_iso_workdir }}/pull-secret.json"
+openshift_pull_secret_file: "{{ openshift_agent_iso_workdir }}/mirror-auth.json"
 
 # Path to oc binary (use system oc, or oc from oc-mirror workspace).
 openshift_oc_bin: oc
