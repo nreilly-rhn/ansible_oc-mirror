@@ -1,10 +1,4 @@
 ---
-# - name: Install RPMs
-#   become: true
-#   ansible.builtin.package:
-#     name: gpgme
-#     state: present
-
 - name: Create oc-mirror workspace
   become: true
   ansible.builtin.file:
