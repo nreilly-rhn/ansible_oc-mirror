@@ -17,6 +17,34 @@
     mode: "0775"
     owner: "{{ ansible_user | default(omit) }}"
     group: "{{ ansible_user | default(omit) }}"
+  with_items:
+    - "{{ quay_workdir }}"
+    - "{{ oc_mirror_workdir }}"
+
+
+- name: Check for transfer archive
+  ansible.builtin.stat:
+    path: "{{ oc_mirror_archive_path }}"
+  register: oc_mirror_archive
+  when: not oc_mirror_workspace.stat.exists
+
+- name: Fail when workspace and archive are both missing
+  ansible.builtin.fail:
+    msg: >-
+      No mirror workspace at {{ oc_mirror_workdir }} and no archive at
+      {{ oc_mirror_archive_path }}.
+  when:
+    - not oc_mirror_workspace.stat.exists
+    - not oc_mirror_archive.stat.exists
+
+- name: Restore workspace from transfer archive
+  ansible.builtin.unarchive:
+    src: "{{ oc_mirror_archive_path }}"
+    dest: "{{ oc_mirror_workdir | dirname }}"
+    remote_src: true
+  when:
+    - not oc_mirror_workspace.stat.exists
+    - oc_mirror_archive.stat.exists
 
 - name: Extract the Quay Mirror Registry
   ansible.builtin.unarchive:
