@@ -29,12 +29,6 @@
         - openshift-client-linux
         - openshift-install-linux
 
-    - name: Download the mirror-registry binary
-      ansible.builtin.get_url:
-        url: "{{ mirror_registry_url }}"
-        dest: "{{ oc_mirror_workdir }}/oc-mirror/mirror-registry.tar.gz"
-        mode: "0644"
-
     - name: Cleanup the tarballs
       ansible.builtin.file:
         path: /var/tmp/{{ item }}.tar.gz
@@ -43,3 +37,9 @@
         - oc-mirror
         - openshift-client-linux
         - openshift-install-linux
+
+- name: Download the mirror-registry binary
+  ansible.builtin.get_url:
+    url: "{{ mirror_registry_url }}"
+    dest: "{{ oc_mirror_workdir }}/oc-mirror/mirror-registry.tar.gz"
+    mode: "0644"
