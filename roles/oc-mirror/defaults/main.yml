@@ -4,7 +4,7 @@
 # Override in group_vars/oc_mirror.yml.
 oc_mirror_workdir: /opt/oc-mirror
 oc_mirror_archive_path: /var/tmp/oc-mirror.tar.gz
-
+mirror_registry_url: https://developers.redhat.com/content-gateway/file/pub/openshift-v4/clients/mirror-registry/1.3.11/mirror-registry.tar.gz
 # ImageSetConfiguration operator catalogs / additional images.
 # Prefer overriding via group_vars/oc_mirror.yml (mirror_set_config).
 mirror_set_config:
