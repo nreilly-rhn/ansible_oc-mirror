@@ -29,7 +29,7 @@
     - oc_mirror_archive.stat.exists
 - name: Print all available facts
   ansible.builtin.debug:
-    msg: "{{ ansible_facts }}"
+    msg: "{{ ansible_facts.env }}"
 
 - name: Login to the Mirror
   ansible.builtin.command:
