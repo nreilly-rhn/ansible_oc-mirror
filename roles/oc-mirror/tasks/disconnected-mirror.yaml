@@ -41,7 +41,7 @@
       - --password
       - "{{ quay_password }}"
       - --authfile
-      - "{{ ansible_facts['ansible_env']['HOME'] }}/.dockercfg"
+      - "{{ ansible_facts.user_dir }}/.dockercfg"
       - --tls-verify=false
       - "{{ ansible_facts['fqdn'] }}:8443"
     creates: "{{ oc_mirror_workdir }}/mirror-auth.json"
