@@ -1,19 +1,22 @@
 ---
-- name: Install packages
-  ansible.builtin.package:
-    name: "{{ item }}"
-    state: present
-  with_items:
-    - openssl
-    - bash-completion
-    - ansible-core
-    - podman
+# - name: Install packages
+#   ansible.builtin.package:
+#     name: "{{ item }}"
+#     state: present
+#   with_items:
+#     - openssl
+#     - bash-completion
+#     - ansible-core
+#     - podman
 
 - name: Create Directories
+  become: true
   ansible.builtin.file:
     path: "{{ quay_workdir }}"
     state: directory
     mode: "0775"
+    owner: "{{ ansible_user | default(omit) }}"
+    group: "{{ ansible_user | default(omit) }}"
 
 - name: Extract the Quay Mirror Registry
   ansible.builtin.unarchive:

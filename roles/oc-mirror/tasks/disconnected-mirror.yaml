@@ -1,5 +1,6 @@
 ---
 - name: Ensure oc-mirror workspace exists
+  become: true
   ansible.builtin.file:
     path: "{{ oc_mirror_workdir }}"
     state: directory
