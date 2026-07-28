@@ -41,5 +41,5 @@
 - name: Download the mirror-registry binary
   ansible.builtin.get_url:
     url: "{{ mirror_registry_url }}"
-    dest: "{{ oc_mirror_workdir }}/oc-mirror/mirror-registry.tar.gz"
+    dest: "{{ oc_mirror_workdir }}/mirror-registry.tar.gz"
     mode: "0644"
