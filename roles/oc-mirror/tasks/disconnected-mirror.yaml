@@ -27,6 +27,9 @@
   when:
     - not oc_mirror_workspace.stat.exists
     - oc_mirror_archive.stat.exists
+- name: Print all available facts
+  ansible.builtin.debug:
+    msg: "{{ ansible_facts }}"
 
 - name: Login to the Mirror
   ansible.builtin.command:
