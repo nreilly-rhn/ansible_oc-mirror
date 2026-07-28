@@ -56,5 +56,7 @@
     path:
       - "{{ oc_mirror_workdir }}"
     mode: "0664"
-    format: gz
+    format: tar
     dest: "{{ oc_mirror_archive_path }}"
+  async: 7200
+  poll: 60

@@ -15,15 +15,9 @@
     state: directory
     mode: "0775"
 
-- name: Download the Quay Mirror Registry
-  ansible.builtin.get_url:
-    url: https://developers.redhat.com/content-gateway/file/pub/openshift-v4/clients/mirror-registry/1.3.11/mirror-registry.tar.gz
-    dest: /var/tmp/mirror-registry.tar.gz
-    mode: "0644"
-
 - name: Extract the Quay Mirror Registry
   ansible.builtin.unarchive:
-    src: /var/tmp/mirror-registry.tar.gz
+    src: "{{ oc_mirror_workdir }}/mirror-registry.tar.gz"
     dest: /var/tmp/
     remote_src: true
     creates: /var/tmp/mirror-registry

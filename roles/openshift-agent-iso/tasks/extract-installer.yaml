@@ -1,0 +1,41 @@
+---
+- name: Render container registry mirror config for disconnected pulls
+  ansible.builtin.template:
+    src: registries.conf.j2
+    dest: "{{ openshift_registries_conf_file }}"
+    mode: "0644"
+
+- name: Install registry mirror drop-in for containers/oc
+  ansible.builtin.copy:
+    src: "{{ openshift_registries_conf_file }}"
+    dest: /etc/containers/registries.conf.d/99-openshift-agent-mirror.conf
+    remote_src: true
+    mode: "0644"
+
+- name: Check for existing openshift-install binary
+  ansible.builtin.stat:
+    path: "{{ openshift_agent_iso_workdir }}/openshift-install"
+  register: openshift_install_binary
+
+- name: Extract openshift-install from release image
+  when: >-
+    (not openshift_install_binary.stat.exists)
+    or (force_openshift_install_extract | default(false) | bool)
+  ansible.builtin.command:
+    argv:
+      - "{{ openshift_oc_bin }}"
+      - adm
+      - release
+      - extract
+      - --registry-config={{ openshift_pull_secret_file }}
+      - --insecure=true
+      - --command=openshift-install
+      - --to={{ openshift_agent_iso_workdir }}
+      - "{{ openshift_release_image }}"
+  register: openshift_install_extract
+  changed_when: openshift_install_extract.rc == 0
+
+- name: Ensure openshift-install is executable
+  ansible.builtin.file:
+    path: "{{ openshift_agent_iso_workdir }}/openshift-install"
+    mode: "0755"

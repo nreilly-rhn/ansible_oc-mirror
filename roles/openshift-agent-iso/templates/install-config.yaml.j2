@@ -1,0 +1,52 @@
+apiVersion: v1
+baseDomain: {{ openshift_base_domain }}
+metadata:
+  name: {{ openshift_cluster_name }}
+compute:
+  - name: worker
+    replicas: {{ openshift_agent_topology.compute_replicas }}
+controlPlane:
+  name: master
+  replicas: {{ openshift_agent_topology.control_plane_replicas }}
+networking:
+  networkType: {{ openshift_network_type }}
+  machineNetwork:
+{% for net in openshift_machine_network %}
+    - cidr: {{ net.cidr }}
+{% endfor %}
+  clusterNetwork:
+{% for net in openshift_cluster_network %}
+    - cidr: {{ net.cidr }}
+      hostPrefix: {{ net.hostPrefix }}
+{% endfor %}
+  serviceNetwork:
+{% for cidr in openshift_service_network %}
+    - {{ cidr }}
+{% endfor %}
+platform:
+{% if openshift_agent_topology.platform == 'none' %}
+  none: {}
+{% elif openshift_agent_topology.platform == 'baremetal' %}
+  baremetal:
+    apiVIPs:
+{% for vip in openshift_api_vips %}
+      - {{ vip }}
+{% endfor %}
+    ingressVIPs:
+{% for vip in openshift_ingress_vips %}
+      - {{ vip }}
+{% endfor %}
+{% endif %}
+fips: {{ openshift_fips | bool | lower }}
+pullSecret: '{{ openshift_pull_secret | trim }}'
+sshKey: '{{ openshift_ssh_key | trim }}'
+imageDigestSources:
+{% for entry in openshift_image_digest_sources %}
+  - source: {{ entry.source }}
+    mirrors:
+{% for mirror in entry.mirrors %}
+      - {{ mirror }}
+{% endfor %}
+{% endfor %}
+additionalTrustBundle: |
+{{ openshift_additional_trust_bundle | trim | replace('\\n', '\n') | indent(2, first=True) }}

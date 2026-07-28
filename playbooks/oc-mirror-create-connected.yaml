@@ -5,7 +5,7 @@
 #   -i inventory.yaml \
 #   -e @vault/quay_secrets.yaml \
 #   --vault-password-file \
-#   .vault_password
+#   ~/.vault_password
 ######################################################
 - name: Create Mirror
   hosts: connected_mirror

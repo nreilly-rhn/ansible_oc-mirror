@@ -1,0 +1,42 @@
+---
+- name: Remove previous Agent ISO if present
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ openshift_agent_iso_install_dir }}/agent.x86_64.iso"
+    - "{{ openshift_agent_iso_install_dir }}/agent.iso"
+
+- name: Create Agent-based Installer ISO
+  ansible.builtin.command:
+    argv:
+      - "{{ openshift_agent_iso_workdir }}/openshift-install"
+      - agent
+      - create
+      - image
+      - --dir={{ openshift_agent_iso_install_dir }}
+  register: openshift_agent_create_image
+  async: 3600
+  poll: 30
+  changed_when: openshift_agent_create_image.rc == 0
+
+- name: Locate generated Agent ISO
+  ansible.builtin.find:
+    paths: "{{ openshift_agent_iso_install_dir }}"
+    patterns:
+      - "agent*.iso"
+    file_type: file
+  register: openshift_agent_iso_files
+
+- name: Fail when Agent ISO was not created
+  ansible.builtin.fail:
+    msg: >-
+      openshift-install agent create image completed but no agent*.iso was
+      found under {{ openshift_agent_iso_install_dir }}.
+  when: openshift_agent_iso_files.files | length == 0
+
+- name: Display generated Agent ISO path
+  ansible.builtin.debug:
+    msg: >-
+      Agent ISO ready:
+      {{ openshift_agent_iso_files.files | map(attribute='path') | list }}

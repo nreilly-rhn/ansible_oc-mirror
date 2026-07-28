@@ -125,7 +125,7 @@ Ensure inventory hosts are listed under `connected_mirror` / `disconnected_mirro
 
 - Disconnected Quay health checks and `podman login` / `oc-mirror` use TLS verification disabled for lab self-signed (or custom) certificates.
 - Connected mirror only re-runs `oc-mirror` when the ImageSet configuration task reports changed.
-- Disk sizing: plan for workspace + archive + Quay storage (often well over 100 GiB for a full release mirror).
+- Disk sizing: plan for workspace + archive + Quay storage (often well over 200 GiB for a full release mirror).
 
 ## License
 

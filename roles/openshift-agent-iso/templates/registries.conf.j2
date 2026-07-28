@@ -1,0 +1,14 @@
+# Generated for disconnected oc / openshift-install pulls.
+{% for entry in openshift_image_digest_sources %}
+[[registry]]
+prefix = "{{ entry.source }}"
+location = "{{ entry.source }}"
+mirror-by-digest-only = true
+
+{% for mirror in entry.mirrors %}
+[[registry.mirror]]
+location = "{{ mirror }}"
+insecure = true
+
+{% endfor %}
+{% endfor %}

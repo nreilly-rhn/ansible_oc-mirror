@@ -1,0 +1,18 @@
+---
+######################################################
+# ansible-playbook playbooks/openshift-agent-create-iso.yaml \
+#   -i inventory.yaml \
+#   -l registry-int.lab.naramajac.xyz \
+#   -e @vault/quay_secrets.yaml \
+#   --vault-password-file /home/nreilly/tmp/.vault/.vault_password
+######################################################
+- name: Create OpenShift Agent ISO
+  hosts: openshift_agent_iso
+  become: true
+  tasks:
+    - name: Generate Agent-based Installer ISO
+      ansible.builtin.include_role:
+        name: "../roles/openshift-agent-iso"
+        tasks_from: create-iso
+        apply:
+          become: true

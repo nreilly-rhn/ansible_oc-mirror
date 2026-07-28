@@ -1,0 +1,127 @@
+---
+# Resolve imageDigestSources + additionalTrustBundle for disconnected installs.
+# Prefer oc-mirror generated IDMS; fall back to openshift_image_digest_sources_default.
+# Prefer openshift_additional_trust_bundle; else fetch TLS cert from the mirror port.
+
+- name: Check for oc-mirror cluster-resources directory
+  ansible.builtin.stat:
+    path: "{{ openshift_oc_mirror_cluster_resources }}"
+  register: openshift_cluster_resources_dir
+
+- name: Find oc-mirror ImageDigestMirrorSet manifests
+  when: openshift_cluster_resources_dir.stat.exists | default(false)
+  ansible.builtin.find:
+    paths: "{{ openshift_oc_mirror_cluster_resources }}"
+    patterns:
+      - "idms*.yaml"
+      - "idms*.yml"
+      - "*idms*.yaml"
+      - "*idms*.yml"
+    file_type: file
+  register: openshift_idms_files
+
+- name: Load imageDigestSources from oc-mirror IDMS
+  when:
+    - not (openshift_image_digest_sources_force | default(false) | bool)
+    - openshift_idms_files is defined
+    - openshift_idms_files.files | default([]) | length > 0
+  block:
+    - name: Slurp IDMS manifests
+      ansible.builtin.slurp:
+        src: "{{ item.path }}"
+      loop: "{{ openshift_idms_files.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+      register: openshift_idms_slurp
+
+    - name: Reset imageDigestSources before IDMS import
+      ansible.builtin.set_fact:
+        openshift_image_digest_sources: []
+
+    - name: Build imageDigestSources from IDMS imageDigestMirrors
+      ansible.builtin.set_fact:
+        openshift_image_digest_sources: >-
+          {{
+            openshift_image_digest_sources
+            + (
+              (doc.spec.imageDigestMirrors | default([]))
+              if (doc.kind | default('') == 'ImageDigestMirrorSet')
+              else []
+            )
+          }}
+      loop: >-
+        {{
+          openshift_idms_slurp.results
+          | map(attribute='content')
+          | map('b64decode')
+          | map('from_yaml_all')
+          | flatten
+          | list
+        }}
+      loop_control:
+        loop_var: doc
+        label: "{{ doc.metadata.name | default(doc.kind | default('doc')) }}"
+
+- name: Apply default release imageDigestSources when none were resolved
+  when: openshift_image_digest_sources | default([]) | length == 0
+  ansible.builtin.set_fact:
+    openshift_image_digest_sources: "{{ openshift_image_digest_sources_default }}"
+
+- name: Deduplicate imageDigestSources by source
+  ansible.builtin.set_fact:
+    openshift_image_digest_sources: >-
+      {{
+        openshift_image_digest_sources
+        | unique(attribute='source')
+        | list
+      }}
+
+- name: Parse mirror registry host and TLS port
+  when: openshift_additional_trust_bundle | default('') | length == 0
+  ansible.builtin.set_fact:
+    openshift_mirror_registry_host: "{{ openshift_mirror_registry.split(':')[0] }}"
+    openshift_mirror_registry_port: >-
+      {{ openshift_mirror_registry.split(':')[1] | default('8443') | int }}
+
+- name: Fetch mirror registry TLS certificate from port
+  when: openshift_additional_trust_bundle | default('') | length == 0
+  community.crypto.get_certificate:
+    host: "{{ openshift_mirror_registry_host }}"
+    port: "{{ openshift_mirror_registry_port }}"
+    get_certificate_chain: true
+  delegate_to: localhost
+  become: false
+  register: openshift_mirror_tls
+
+- name: Set additionalTrustBundle from fetched TLS certificate chain
+  when:
+    - openshift_additional_trust_bundle | default('') | length == 0
+    - openshift_mirror_tls is defined
+    - openshift_mirror_tls.cert is defined
+  ansible.builtin.set_fact:
+    openshift_additional_trust_bundle: "{{ _mirror_certs | map('trim') | list | join(_newline) }}"
+  vars:
+    _newline: "\n"
+    _mirror_certs: >-
+      {{
+        openshift_mirror_tls.unverified_chain
+        | default([openshift_mirror_tls.cert])
+      }}
+
+- name: Validate disconnected mirror settings for install-config
+  ansible.builtin.assert:
+    that:
+      - openshift_image_digest_sources | length > 0
+      - openshift_additional_trust_bundle | length > 0
+    fail_msg: >-
+      Disconnected install-config requires imageDigestSources and
+      additionalTrustBundle. Provide openshift_image_digest_sources (or ensure
+      oc-mirror IDMS exists under {{ openshift_oc_mirror_cluster_resources }}),
+      and ensure {{ openshift_mirror_registry }} is reachable over TLS
+      (or set openshift_additional_trust_bundle explicitly).
+
+- name: Write mirror CA for oc / installer trust
+  ansible.builtin.copy:
+    dest: "{{ openshift_mirror_ca_file }}"
+    content: "{{ openshift_additional_trust_bundle }}"
+    mode: "0644"

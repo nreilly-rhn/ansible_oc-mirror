@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MIT-0
+galaxy_info:
+  author: Nathan Reilly
+  description: >-
+    Generate an OpenShift Agent-based Installer ISO from a mirrored release
+    image (install-config + agent-config).
+  company: Red Hat
+  license: GPL-2.0-or-later
+  min_ansible_version: "2.14"
+  galaxy_tags: []
+  collections:
+    - community.crypto
+
+dependencies: []

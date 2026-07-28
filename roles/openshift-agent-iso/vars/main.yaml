@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MIT-0
+---
+# Topology → install-config replica / platform mapping.
+openshift_topology_map:
+  sno:
+    control_plane_replicas: 1
+    compute_replicas: 0
+    platform: none
+  compact:
+    control_plane_replicas: 3
+    compute_replicas: 0
+    platform: baremetal
+  ha:
+    control_plane_replicas: 3
+    # Overridden at runtime from openshift_hosts worker count (>= 2).
+    compute_replicas: 2
+    platform: baremetal
