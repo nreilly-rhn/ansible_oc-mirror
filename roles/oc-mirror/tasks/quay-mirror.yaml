@@ -99,7 +99,7 @@
         and (quay_sslKey is defined and quay_sslKey | length > 0)
       }}
     quay_install_argv_base:
-      - ./mirror-registry
+      - /var/tmp/mirror-registry
       - install
       - --targetHostname
       - "{{ ansible_facts['fqdn'] }}"
@@ -124,6 +124,5 @@
 - name: Install Quay Mirror Registry
   become: true
   ansible.builtin.command:
-    chdir: /var/tmp
     argv: "{{ quay_install_argv }}"
     creates: "{{ quay_workdir }}/quay-config"
