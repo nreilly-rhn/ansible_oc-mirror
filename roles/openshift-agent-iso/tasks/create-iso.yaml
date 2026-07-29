@@ -169,6 +169,6 @@
   ansible.builtin.include_tasks:
     file: render-configs.yaml
 
-# - name: Generate Agent-based Installer ISO
-#   ansible.builtin.include_tasks:
-#     file: create-image.yaml
+- name: Generate Agent-based Installer ISO
+  ansible.builtin.include_tasks:
+    file: create-image.yaml
