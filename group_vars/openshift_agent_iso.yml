@@ -42,7 +42,7 @@ openshift_oc_mirror_workdir: /opt/oc-mirror
 #   bond1     → 10.254.224.0/24 (gw .254, dns .253)
 #   MAC prefix: 52:54:01
 # ---------------------------------------------------------------------------
-openshift_hosts:
+# openshift_hosts:
 #   - hostname: master-0.lab.naramajac.xyz
 #     role: master
 #     root_device_name: /dev/sda
