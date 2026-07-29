@@ -4,9 +4,13 @@ metadata:
   name: {{ openshift_cluster_name }}
 compute:
   - name: worker
+    architecture: amd64
+    hyperthreading: Enabled
     replicas: {{ openshift_agent_topology.compute_replicas }}
 controlPlane:
   name: master
+  architecture: amd64
+  hyperthreading: Enabled
   replicas: {{ openshift_agent_topology.control_plane_replicas }}
 networking:
   networkType: {{ openshift_network_type }}

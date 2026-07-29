@@ -43,181 +43,181 @@ openshift_oc_mirror_workdir: /opt/oc-mirror
 #   MAC prefix: 52:54:01
 # ---------------------------------------------------------------------------
 openshift_hosts:
-  - hostname: master-0.lab.naramajac.xyz
-    role: master
-    root_device_name: /dev/sda
-    interfaces:
-      - name: eno1
-        mac_address: "52:54:01:00:00:11"
-      - name: eno2
-        mac_address: "52:54:01:00:00:12"
-      - name: eno3
-        mac_address: "52:54:01:00:00:13"
-      - name: eno4
-        mac_address: "52:54:01:00:00:14"
-    network_config:
-      ipv4_addresses:
-        - interface: bond0.100
-          address: 172.16.1.226
-          prefix_length: 24
-        - interface: bond1
-          address: 10.254.224.226
-          prefix_length: 24
-      bonds:
-        - name: bond0
-          mode: active-backup
-          ports:
-            - eno1
-            - eno2
-          primary: eno1
-          miimon: "100"
-        - name: bond1
-          mode: 802.3ad
-          ports:
-            - eno3
-            - eno4
-          miimon: "100"
-      vlans:
-        - name: bond0.100
-          id: 100
-          base_iface: bond0
-      dns_resolver:
-        - 172.16.1.253
-        - 10.254.224.253
-      # Dual default routes need separate tables + source-based route-rules
-      # so replies egress the interface that owns the source IP.
-      routes:
-        - destination: "0.0.0.0/0"
-          next_hop_address: 172.16.1.254
-          next_hop_interface: bond0.100
-          table_id: 100
-        - destination: "0.0.0.0/0"
-          next_hop_address: 10.254.224.254
-          next_hop_interface: bond1
-          table_id: 101
-      route_rules:
-        - ip_from: 172.16.1.226/32
-          route_table: 100
-          priority: 1000
-        - ip_from: 10.254.224.226/32
-          route_table: 101
-          priority: 1001
-
-  - hostname: master-1.lab.naramajac.xyz
-    role: master
-    root_device_name: /dev/sda
-    interfaces:
-      - name: eno1
-        mac_address: "52:54:01:00:00:21"
-      - name: eno2
-        mac_address: "52:54:01:00:00:22"
-      - name: eno3
-        mac_address: "52:54:01:00:00:23"
-      - name: eno4
-        mac_address: "52:54:01:00:00:24"
-    network_config:
-      ipv4_addresses:
-        - interface: bond0.100
-          address: 172.16.1.227
-          prefix_length: 24
-        - interface: bond1
-          address: 10.254.224.227
-          prefix_length: 24
-      bonds:
-        - name: bond0
-          mode: active-backup
-          ports:
-            - eno1
-            - eno2
-          primary: eno1
-          miimon: "100"
-        - name: bond1
-          mode: 802.3ad
-          ports:
-            - eno3
-            - eno4
-          miimon: "100"
-      vlans:
-        - name: bond0.100
-          id: 100
-          base_iface: bond0
-      dns_resolver:
-        - 172.16.1.253
-        - 10.254.224.253
-      routes:
-        - destination: "0.0.0.0/0"
-          next_hop_address: 172.16.1.254
-          next_hop_interface: bond0.100
-          table_id: 100
-        - destination: "0.0.0.0/0"
-          next_hop_address: 10.254.224.254
-          next_hop_interface: bond1
-          table_id: 101
-      route_rules:
-        - ip_from: 172.16.1.227/32
-          route_table: 100
-          priority: 1000
-        - ip_from: 10.254.224.227/32
-          route_table: 101
-          priority: 1001
-
-  - hostname: master-2.lab.naramajac.xyz
-    role: master
-    root_device_name: /dev/sda
-    interfaces:
-      - name: eno1
-        mac_address: "52:54:01:00:00:31"
-      - name: eno2
-        mac_address: "52:54:01:00:00:32"
-      - name: eno3
-        mac_address: "52:54:01:00:00:33"
-      - name: eno4
-        mac_address: "52:54:01:00:00:34"
-    network_config:
-      ipv4_addresses:
-        - interface: bond0.100
-          address: 172.16.1.228
-          prefix_length: 24
-        - interface: bond1
-          address: 10.254.224.228
-          prefix_length: 24
-      bonds:
-        - name: bond0
-          mode: active-backup
-          ports:
-            - eno1
-            - eno2
-          primary: eno1
-          miimon: "100"
-        - name: bond1
-          mode: 802.3ad
-          ports:
-            - eno3
-            - eno4
-          miimon: "100"
-      vlans:
-        - name: bond0.100
-          id: 100
-          base_iface: bond0
-      dns_resolver:
-        - 172.16.1.253
-        - 10.254.224.253
-      routes:
-        - destination: "0.0.0.0/0"
-          next_hop_address: 172.16.1.254
-          next_hop_interface: bond0.100
-          table_id: 100
-        - destination: "10.254.224.0/24"
-          next_hop_address: 10.254.224.254
-          next_hop_interface: bond1
-          table_id: 101
-      route_rules:
-        - ip_from: 172.16.1.228/32
-          route_table: 100
-          priority: 1000
-        - ip_from: 10.254.224.228/32
-          route_table: 101
-          priority: 1001
+#   - hostname: master-0.lab.naramajac.xyz
+#     role: master
+#     root_device_name: /dev/sda
+#     interfaces:
+#       - name: eno1
+#         mac_address: "52:54:01:00:00:11"
+#       - name: eno2
+#         mac_address: "52:54:01:00:00:12"
+#       - name: eno3
+#         mac_address: "52:54:01:00:00:13"
+#       - name: eno4
+#         mac_address: "52:54:01:00:00:14"
+#     network_config:
+#       ipv4_addresses:
+#         - interface: bond0.100
+#           address: 172.16.1.226
+#           prefix_length: 24
+#         - interface: bond1
+#           address: 10.254.224.226
+#           prefix_length: 24
+#       bonds:
+#         - name: bond0
+#           mode: active-backup
+#           ports:
+#             - eno1
+#             - eno2
+#           primary: eno1
+#           miimon: "100"
+#         - name: bond1
+#           mode: 802.3ad
+#           ports:
+#             - eno3
+#             - eno4
+#           miimon: "100"
+#       vlans:
+#         - name: bond0.100
+#           id: 100
+#           base_iface: bond0
+#       dns_resolver:
+#         - 172.16.1.253
+#         - 10.254.224.253
+#       # Dual default routes need separate tables + source-based route-rules
+#       # so replies egress the interface that owns the source IP.
+#       routes:
+#         - destination: "0.0.0.0/0"
+#           next_hop_address: 172.16.1.254
+#           next_hop_interface: bond0.100
+#           table_id: 100
+#         - destination: "0.0.0.0/0"
+#           next_hop_address: 10.254.224.254
+#           next_hop_interface: bond1
+#           table_id: 101
+#       route_rules:
+#         - ip_from: 172.16.1.226/32
+#           route_table: 100
+#           priority: 1000
+#         - ip_from: 10.254.224.226/32
+#           route_table: 101
+#           priority: 1001
+# 
+#   - hostname: master-1.lab.naramajac.xyz
+#     role: master
+#     root_device_name: /dev/sda
+#     interfaces:
+#       - name: eno1
+#         mac_address: "52:54:01:00:00:21"
+#       - name: eno2
+#         mac_address: "52:54:01:00:00:22"
+#       - name: eno3
+#         mac_address: "52:54:01:00:00:23"
+#       - name: eno4
+#         mac_address: "52:54:01:00:00:24"
+#     network_config:
+#       ipv4_addresses:
+#         - interface: bond0.100
+#           address: 172.16.1.227
+#           prefix_length: 24
+#         - interface: bond1
+#           address: 10.254.224.227
+#           prefix_length: 24
+#       bonds:
+#         - name: bond0
+#           mode: active-backup
+#           ports:
+#             - eno1
+#             - eno2
+#           primary: eno1
+#           miimon: "100"
+#         - name: bond1
+#           mode: 802.3ad
+#           ports:
+#             - eno3
+#             - eno4
+#           miimon: "100"
+#       vlans:
+#         - name: bond0.100
+#           id: 100
+#           base_iface: bond0
+#       dns_resolver:
+#         - 172.16.1.253
+#         - 10.254.224.253
+#       routes:
+#         - destination: "0.0.0.0/0"
+#           next_hop_address: 172.16.1.254
+#           next_hop_interface: bond0.100
+#           table_id: 100
+#         - destination: "0.0.0.0/0"
+#           next_hop_address: 10.254.224.254
+#           next_hop_interface: bond1
+#           table_id: 101
+#       route_rules:
+#         - ip_from: 172.16.1.227/32
+#           route_table: 100
+#           priority: 1000
+#         - ip_from: 10.254.224.227/32
+#           route_table: 101
+#           priority: 1001
+# 
+#   - hostname: master-2.lab.naramajac.xyz
+#     role: master
+#     root_device_name: /dev/sda
+#     interfaces:
+#       - name: eno1
+#         mac_address: "52:54:01:00:00:31"
+#       - name: eno2
+#         mac_address: "52:54:01:00:00:32"
+#       - name: eno3
+#         mac_address: "52:54:01:00:00:33"
+#       - name: eno4
+#         mac_address: "52:54:01:00:00:34"
+#     network_config:
+#       ipv4_addresses:
+#         - interface: bond0.100
+#           address: 172.16.1.228
+#           prefix_length: 24
+#         - interface: bond1
+#           address: 10.254.224.228
+#           prefix_length: 24
+#       bonds:
+#         - name: bond0
+#           mode: active-backup
+#           ports:
+#             - eno1
+#             - eno2
+#           primary: eno1
+#           miimon: "100"
+#         - name: bond1
+#           mode: 802.3ad
+#           ports:
+#             - eno3
+#             - eno4
+#           miimon: "100"
+#       vlans:
+#         - name: bond0.100
+#           id: 100
+#           base_iface: bond0
+#       dns_resolver:
+#         - 172.16.1.253
+#         - 10.254.224.253
+#       routes:
+#         - destination: "0.0.0.0/0"
+#           next_hop_address: 172.16.1.254
+#           next_hop_interface: bond0.100
+#           table_id: 100
+#         - destination: "10.254.224.0/24"
+#           next_hop_address: 10.254.224.254
+#           next_hop_interface: bond1
+#           table_id: 101
+#       route_rules:
+#         - ip_from: 172.16.1.228/32
+#           route_table: 100
+#           priority: 1000
+#         - ip_from: 10.254.224.228/32
+#           route_table: 101
+#           priority: 1001
 
 # ---------------------------------------------------------------------------
 # Simpler SNO example (single ethernet) — swap in for a 1-node cluster:
