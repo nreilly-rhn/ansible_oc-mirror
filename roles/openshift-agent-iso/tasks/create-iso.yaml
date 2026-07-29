@@ -152,7 +152,9 @@
 
 - name: Use mirror-only pull secret for install-config rendering
   ansible.builtin.set_fact:
-    openshift_pull_secret: "{{ openshift_mirror_pull_secret_compact.stdout }}"
+    # Keep as a JSON string; avoid Jinja/native coercion to a Python dict
+    # (dict repr uses single quotes and breaks install-config YAML).
+    openshift_pull_secret: "{{ openshift_mirror_pull_secret_compact.stdout | string }}"
   no_log: true
 
 - name: Prepare disconnected mirror settings for install-config

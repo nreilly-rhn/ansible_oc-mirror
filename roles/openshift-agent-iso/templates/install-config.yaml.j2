@@ -38,8 +38,14 @@ platform:
 {% endfor %}
 {% endif %}
 fips: {{ openshift_fips | bool | lower }}
-pullSecret: '{{ openshift_pull_secret | trim }}'
-sshKey: '{{ openshift_ssh_key | trim }}'
+{# pullSecret must be a YAML string containing JSON (double quotes).
+   If Ansible coerced the JSON to a dict, to_json restores valid JSON. #}
+{% if openshift_pull_secret is mapping %}
+pullSecret: '{{ openshift_pull_secret | to_json }}'
+{% else %}
+pullSecret: {{ openshift_pull_secret | trim | to_json }}
+{% endif %}
+sshKey: {{ openshift_ssh_key | trim | to_json }}
 imageDigestSources:
 {% for entry in openshift_image_digest_sources %}
   - source: {{ entry.source }}
