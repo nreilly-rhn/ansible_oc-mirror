@@ -121,13 +121,6 @@
     owner: "{{ ansible_user | default(omit) }}"
     group: "{{ ansible_user | default(omit) }}"
 
-- name: Write Red Hat pull secret
-  ansible.builtin.copy:
-    dest: "{{ openshift_agent_iso_workdir }}/redhat-auth.json"
-    content: "{{ openshift_pull_secret }}"
-    mode: "0600"
-  no_log: true
-
 - name: Login to disconnected mirror registry
   ansible.builtin.command:
     argv:
@@ -138,20 +131,9 @@
       - --password
       - "{{ quay_password }}"
       - --authfile
-      - "{{ openshift_agent_iso_workdir }}/mirror-auth.json"
+      - "{{ ansible_facts.user_dir }}/.dockercfg"
       - --tls-verify=false
       - "{{ openshift_mirror_registry }}"
-  no_log: true
-  changed_when: true
-
-- name: Combine Red Hat and mirror credentials for oc extract
-  ansible.builtin.shell:
-    chdir: "{{ openshift_agent_iso_workdir }}"
-    cmd: >-
-      jq -s '{auths: (.[0].auths + .[1].auths)}'
-      mirror-auth.json redhat-auth.json > {{ openshift_pull_secret_file | basename }}
-  args:
-    executable: /bin/bash
   no_log: true
   changed_when: true
 
