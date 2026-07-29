@@ -8,7 +8,6 @@
 ######################################################
 - name: Create OpenShift Agent ISO
   hosts: openshift_agent_iso
-  become: true
   tasks:
     - name: Generate Agent-based Installer ISO
       ansible.builtin.include_role:

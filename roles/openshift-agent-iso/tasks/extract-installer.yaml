@@ -31,7 +31,7 @@
       - --insecure=true
       - --command=openshift-install
       - --to={{ openshift_agent_iso_workdir }}
-      - "{{ openshift_release_image }}"
+      - --from="{{ openshift_release_image }}"
   register: openshift_install_extract
   changed_when: openshift_install_extract.rc == 0
 
