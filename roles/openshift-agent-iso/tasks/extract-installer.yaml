@@ -40,9 +40,11 @@
       - --insecure=true
       - --idms-file={{ openshift_release_extract_idms_file }}
       - --command=openshift-install
-      - --to={{ openshift_agent_iso_workdir }}
+      - --to={{ item }}
       - --from={{ openshift_release_image }}
-  register: openshift_install_extract
+  with_items:
+    - openshift-install
+    - oc
   changed_when: openshift_install_extract.rc == 0
 
 - name: Ensure openshift-install is executable

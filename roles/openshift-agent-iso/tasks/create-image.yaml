@@ -8,6 +8,8 @@
     - "{{ openshift_agent_iso_install_dir }}/agent.iso"
 
 - name: Create Agent-based Installer ISO
+  environment:
+    PATH: "{{ openshift_agent_iso_workdir }}:{{ ansible_env.PATH }}"
   ansible.builtin.command:
     argv:
       - "{{ openshift_agent_iso_workdir }}/openshift-install"
