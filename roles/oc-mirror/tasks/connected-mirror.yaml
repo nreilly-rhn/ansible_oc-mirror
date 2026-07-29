@@ -25,7 +25,7 @@
     content: "{{ redhat_pull_secret }}"
     mode: "0600"
 
-- name: Mirror content to disk with oc-mirror v2
+- name: Run oc-mirror - Mirror to Disk
   when: mirror_config.changed or (force_oc_mirror | default(false) | bool)
   ansible.builtin.command:
     chdir: "{{ oc_mirror_workdir }}"

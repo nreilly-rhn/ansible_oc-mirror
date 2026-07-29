@@ -62,7 +62,7 @@
 #       mirror-auth.json redhat-auth.json > auth.json
 #     creates: "{{ oc_mirror_workdir }}/auth.json"
 
-- name: Run oc-mirror
+- name: Run oc-mirror - Disk to Mirror
   ansible.builtin.command:
     argv:
       - "{{ oc_mirror_workdir }}/oc-mirror"
