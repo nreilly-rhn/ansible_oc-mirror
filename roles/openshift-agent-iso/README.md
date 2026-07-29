@@ -6,7 +6,8 @@ disconnected mirror (extract `openshift-install`, render configs, create image).
 ## Purpose
 
 1. Extract `openshift-install` from the mirrored release image with
-   `oc adm release extract`.
+   `oc adm release extract --idms-file=...` (registries.conf is not used for
+   payload pulls).
 2. Render `install-config.yaml` (baseDomain, networks, VIPs, pullSecret, sshKey).
 3. Render `agent-config.yaml` for SNO or Compact (NMState networking, root
    device hints, DNS, routes).

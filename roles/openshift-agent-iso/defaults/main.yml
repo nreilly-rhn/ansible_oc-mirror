@@ -65,13 +65,14 @@ openshift_image_digest_sources_force: false
 openshift_image_digest_sources: []
 
 # Used when no IDMS files are found and openshift_image_digest_sources is empty.
+# Paths match oc-mirror v2 layout (see idms-oc-mirror.yaml).
 openshift_image_digest_sources_default:
   - source: quay.io/openshift-release-dev/ocp-release
     mirrors:
-      - "{{ openshift_mirror_registry }}/openshift-release-dev/ocp-release"
+      - "{{ openshift_mirror_registry }}/openshift/release-images"
   - source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
     mirrors:
-      - "{{ openshift_mirror_registry }}/openshift-release-dev/ocp-v4.0-art-dev"
+      - "{{ openshift_mirror_registry }}/openshift/release"
   - source: registry.redhat.io
     mirrors:
       - "{{ openshift_mirror_registry }}"

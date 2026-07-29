@@ -1,16 +1,25 @@
 ---
-- name: Render container registry mirror config for disconnected pulls
-  ansible.builtin.template:
-    src: registries.conf.j2
-    dest: "{{ openshift_registries_conf_file }}"
-    mode: "0644"
+# oc adm release extract does NOT honor registries.conf for payload image
+# pulls. Pass --idms-file so quay.io/... digests rewrite to the mirror.
 
-- name: Install registry mirror drop-in for containers/oc
-  ansible.builtin.copy:
-    src: "{{ openshift_registries_conf_file }}"
-    dest: /etc/containers/registries.conf.d/99-openshift-agent-mirror.conf
-    remote_src: true
-    mode: "0644"
+- name: Prefer oc-mirror IDMS file for release extract
+  when: openshift_idms_files.files | default([]) | length > 0
+  ansible.builtin.set_fact:
+    openshift_release_extract_idms_file: "{{ openshift_idms_files.files[0].path }}"
+
+- name: Render IDMS file for release extract when none was found
+  when: openshift_release_extract_idms_file is not defined
+  block:
+    - name: Write ImageDigestMirrorSet from imageDigestSources
+      ansible.builtin.template:
+        src: idms-release-extract.yaml.j2
+        dest: "{{ openshift_agent_iso_workdir }}/idms-release-extract.yaml"
+        mode: "0644"
+
+    - name: Use rendered IDMS for release extract
+      ansible.builtin.set_fact:
+        openshift_release_extract_idms_file: >-
+          {{ openshift_agent_iso_workdir }}/idms-release-extract.yaml
 
 - name: Check for existing openshift-install binary
   ansible.builtin.stat:
@@ -29,9 +38,10 @@
       - extract
       - --registry-config={{ ansible_facts.user_dir }}/.dockercfg
       - --insecure=true
+      - --idms-file={{ openshift_release_extract_idms_file }}
       - --command=openshift-install
       - --to={{ openshift_agent_iso_workdir }}
-      - --from="{{ openshift_release_image }}"
+      - --from={{ openshift_release_image }}
   register: openshift_install_extract
   changed_when: openshift_install_extract.rc == 0
 
