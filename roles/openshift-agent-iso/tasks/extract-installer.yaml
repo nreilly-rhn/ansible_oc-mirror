@@ -26,7 +26,7 @@
     path: "{{ openshift_agent_iso_workdir }}/openshift-install"
   register: openshift_install_binary
 
-- name: Extract openshift-install from release image
+- name: Extract openshift-install and oc CLI from release image
   when: >-
     (not openshift_install_binary.stat.exists)
     or (force_openshift_install_extract | default(false) | bool)
@@ -45,6 +45,7 @@
   with_items:
     - openshift-install
     - oc
+  register: openshift_install_extract
   changed_when: openshift_install_extract.rc == 0
 
 - name: Ensure openshift-install is executable
