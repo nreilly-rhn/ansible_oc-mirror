@@ -145,7 +145,7 @@
       - jq
       - -c
       - .
-      - "{{ openshift_agent_iso_workdir }}/mirror-auth.json"
+      - "{{ ansible_facts.user_dir }}/.dockercfg"
   register: openshift_mirror_pull_secret_compact
   changed_when: false
   no_log: true
