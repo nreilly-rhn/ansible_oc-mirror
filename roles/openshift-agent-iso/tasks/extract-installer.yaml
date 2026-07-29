@@ -39,8 +39,8 @@
       - --registry-config={{ ansible_facts.user_dir }}/.dockercfg
       - --insecure=true
       - --idms-file={{ openshift_release_extract_idms_file }}
-      - --command=openshift-install
-      - --to={{ item }}
+      - --command={{ item }}
+      - --to={{ openshift_agent_iso_workdir }}
       - --from={{ openshift_release_image }}
   with_items:
     - openshift-install
