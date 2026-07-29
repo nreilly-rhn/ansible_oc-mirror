@@ -27,7 +27,7 @@
       - adm
       - release
       - extract
-      - --registry-config={{ openshift_pull_secret_file }}
+      - --registry-config={{ ansible_facts.user_dir }}/.dockercfg
       - --insecure=true
       - --command=openshift-install
       - --to={{ openshift_agent_iso_workdir }}
