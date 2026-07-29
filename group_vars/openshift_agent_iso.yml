@@ -207,7 +207,7 @@ openshift_hosts:
           next_hop_address: 172.16.1.254
           next_hop_interface: bond0.100
           table_id: 100
-        - destination: "0.0.0.0/0"
+        - destination: "10.254.224.0/24"
           next_hop_address: 10.254.224.254
           next_hop_interface: bond1
           table_id: 101
