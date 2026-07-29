@@ -113,7 +113,6 @@
     label: "{{ item.hostname | default('unknown') }}"
 
 - name: Create Agent ISO workspace
-  become: true
   ansible.builtin.file:
     path: "{{ openshift_agent_iso_workdir }}"
     state: directory
