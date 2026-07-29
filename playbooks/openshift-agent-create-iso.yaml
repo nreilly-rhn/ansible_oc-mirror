@@ -13,5 +13,3 @@
       ansible.builtin.include_role:
         name: "../roles/openshift-agent-iso"
         tasks_from: create-iso
-        apply:
-          become: true
