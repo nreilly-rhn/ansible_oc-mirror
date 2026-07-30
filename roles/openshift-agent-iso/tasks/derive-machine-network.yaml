@@ -100,8 +100,8 @@
         that:
           - (item.addresses[0].role | default('node')) == 'node'
         fail_msg: >-
-          Host {{ item.hostname }} has a single address with role
-          '{{ item.addresses[0].role }}'; expected role: node (or omit role).
+          Host {{ item.hostname }} has a single address that is not role: node.
+          Omit role (defaults to node) or set role: node explicitly.
       when: item.addresses | length == 1
       loop: "{{ openshift_host_address_entries }}"
       loop_control:

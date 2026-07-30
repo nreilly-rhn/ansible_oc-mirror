@@ -40,6 +40,16 @@
       rendezvousIP {{ openshift_agent_rendezvous_ip }} is not in node network
       {{ openshift_node_network_cidr }}.
 
+- name: Require derived node network CIDR before rendering install-config
+  ansible.builtin.assert:
+    that:
+      - openshift_node_network_cidr | default('') | length > 0
+    fail_msg: >-
+      openshift_node_network_cidr is not set. Ensure
+      derive-machine-network.yaml ran successfully (host addresses need
+      role: node, or set openshift_machine_network_from_hosts: false with an
+      explicit openshift_machine_network).
+
 - name: Render install-config.yaml (persistent copy)
   ansible.builtin.template:
     src: install-config.yaml.j2

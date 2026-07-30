@@ -14,10 +14,11 @@ controlPlane:
   replicas: {{ openshift_agent_topology.control_plane_replicas }}
 networking:
   networkType: {{ openshift_network_type }}
+  # Single node-fabric CIDR from host addresses with role: node
+  # (see tasks/derive-machine-network.yaml). Additional fabrics such as
+  # storage must not appear here.
   machineNetwork:
-{% for net in openshift_machine_network %}
-    - cidr: {{ net.cidr }}
-{% endfor %}
+    - cidr: {{ openshift_node_network_cidr }}
   clusterNetwork:
 {% for net in openshift_cluster_network %}
     - cidr: {{ net.cidr }}
