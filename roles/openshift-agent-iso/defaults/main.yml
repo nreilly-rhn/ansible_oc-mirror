@@ -36,8 +36,12 @@ openshift_base_domain: lab.naramajac.xyz
 openshift_ssh_key: ""
 openshift_fips: false
 openshift_network_type: OVNKubernetes
-openshift_machine_network:
-  - cidr: 172.16.0.0/24
+# Derived at runtime from host addresses with role: node (see
+# tasks/derive-machine-network.yaml). Set
+# openshift_machine_network_from_hosts: false and populate this list to
+# override.
+openshift_machine_network: []
+openshift_machine_network_from_hosts: true
 openshift_cluster_network:
   - cidr: 10.128.0.0/14
     hostPrefix: 23
@@ -136,9 +140,11 @@ openshift_hosts_compact: &openshift_hosts_compact
         - interface: bond0.100
           address: 172.16.1.226
           prefix_length: 24
+          role: node
         - interface: bond1
           address: 10.254.224.226
           prefix_length: 24
+          role: storage
       bonds:
         - name: bond0
           mode: active-backup
@@ -195,9 +201,11 @@ openshift_hosts_compact: &openshift_hosts_compact
         - interface: bond0.100
           address: 172.16.1.227
           prefix_length: 24
+          role: node
         - interface: bond1
           address: 10.254.224.227
           prefix_length: 24
+          role: storage
       bonds:
         - name: bond0
           mode: active-backup
@@ -252,9 +260,11 @@ openshift_hosts_compact: &openshift_hosts_compact
         - interface: bond0.100
           address: 172.16.1.228
           prefix_length: 24
+          role: node
         - interface: bond1
           address: 10.254.224.228
           prefix_length: 24
+          role: storage
       bonds:
         - name: bond0
           mode: active-backup

@@ -10,5 +10,6 @@ galaxy_info:
   galaxy_tags: []
   collections:
     - community.crypto
+    - ansible.utils
 
 dependencies: []

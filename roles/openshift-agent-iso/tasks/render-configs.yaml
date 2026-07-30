@@ -27,6 +27,19 @@
       Set openshift_rendezvous_ip or provide
       openshift_hosts[0].network_config.ipv4.address (or ipv4_addresses).
 
+- name: Validate rendezvous IP is inside the node network
+  when: openshift_node_network_cidr | default('') | length > 0
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          openshift_agent_rendezvous_ip
+          | ansible.utils.ipaddr(openshift_node_network_cidr)
+        ) == openshift_agent_rendezvous_ip
+    fail_msg: >-
+      rendezvousIP {{ openshift_agent_rendezvous_ip }} is not in node network
+      {{ openshift_node_network_cidr }}.
+
 - name: Render install-config.yaml (persistent copy)
   ansible.builtin.template:
     src: install-config.yaml.j2

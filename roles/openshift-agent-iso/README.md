@@ -26,7 +26,7 @@ Typical target: `registry-int.lab.naramajac.xyz` (has Quay + oc-mirror workspace
 ## Requirements
 
 - Ansible 2.14 or later
-- Collections: `community.crypto` (mirror TLS trust bundle)
+- Collections: `community.crypto` (mirror TLS), `ansible.utils` (CIDR helpers)
 - On the target host: `podman`, `jq`, and `oc` (`openshift_oc_bin`, often
   `/opt/oc-mirror/oc`)
 - Vault / extra-vars: `redhat_pull_secret`, `quay_user`, `quay_password`
@@ -41,11 +41,12 @@ roles/openshift-agent-iso/
 ├── defaults/main.yml
 ├── vars/main.yaml                  # topology → replicas / platform
 ├── tasks/
-│   ├── create-iso.yaml             # validate + orchestrate
-│   ├── prepare-mirror-config.yaml  # IDMS + mirror CA for install-config
-│   ├── extract-installer.yaml      # oc adm release extract --idms-file
-│   ├── render-configs.yaml         # install-config + agent-config
-│   └── create-image.yaml           # openshift-install agent create image
+│   ├── create-iso.yaml               # validate + orchestrate
+│   ├── derive-machine-network.yaml   # machineNetwork from role: node
+│   ├── prepare-mirror-config.yaml    # IDMS + mirror CA for install-config
+│   ├── extract-installer.yaml        # oc adm release extract --idms-file
+│   ├── render-configs.yaml           # install-config + agent-config
+│   └── create-image.yaml             # openshift-install agent create image
 └── templates/
     ├── install-config.yaml.j2
     ├── agent-config.yaml.j2
@@ -97,11 +98,12 @@ the persistent copies in the workdir root for edits/re-runs.
 | `openshift_base_domain` | `lab.naramajac.xyz` | baseDomain |
 | `openshift_pull_secret` | `{{ redhat_pull_secret }}` | Seed for assert; install-config uses mirror-only auth from `podman login` |
 | `openshift_ssh_key` | `""` | Public SSH key (required) |
-| `openshift_machine_network` | `[{cidr: 172.16.0.0/24}]` | machineNetwork |
-| `openshift_api_vips` | `[]` | Required for compact/ha |
-| `openshift_ingress_vips` | `[]` | Required for compact/ha |
+| `openshift_machine_network` | derived | install-config `machineNetwork` (from `role: node`) |
+| `openshift_machine_network_from_hosts` | `true` | Derive machineNetwork from host address roles |
+| `openshift_api_vips` | `[]` | Required for compact/ha; must be on node network |
+| `openshift_ingress_vips` | `[]` | Required for compact/ha; must be on node network |
 | `openshift_hosts` | example SNO host | Host list for agent-config |
-| `openshift_rendezvous_ip` | `""` | Defaults to first host IPv4 (`ipv4.address` or first `ipv4_addresses` entry) |
+| `openshift_rendezvous_ip` | `""` | Defaults to first host IPv4; must be on node network |
 | `openshift_oc_mirror_workdir` | `/opt/oc-mirror` | oc-mirror workspace |
 | `openshift_oc_mirror_cluster_resources` | `…/working-dir/cluster-resources` | IDMS source dir |
 | `openshift_image_digest_sources` | auto / defaults | Written to install-config |
@@ -177,6 +179,7 @@ Each host:
       interface: enp1s0           # interface (or bond/vlan) that gets the address
       address: 172.16.0.10
       prefix_length: 24
+      # role: node                # optional when only one address
       # dhcp: false
     dns_resolver:
       - 172.16.0.254
@@ -184,6 +187,32 @@ Each host:
       - destination: 0.0.0.0/0
         next_hop_address: 172.16.0.1
         next_hop_interface: enp1s0
+```
+
+### machineNetwork from address `role`
+
+`install-config.yaml` `machineNetwork` is a **single** CIDR for the cluster node /
+API fabric. It is derived from host addresses:
+
+| Rule | Behavior |
+|------|----------|
+| One address, no `role` | Defaults to `role: node` |
+| Multiple addresses | Every address needs `role`; exactly one `node` per host |
+| Across hosts | All `role: node` addresses must resolve to the same CIDR |
+| VIPs / rendezvousIP | Must fall inside that node CIDR |
+
+CIDR is computed with `ansible.utils.ipaddr('network/prefix')` from
+`address` + `prefix_length` (e.g. `172.16.1.226/24` → `172.16.1.0/24`).
+
+Additional fabrics (`role: storage`, etc.) stay in agent-config NMState only —
+they are **not** written to `machineNetwork`.
+
+To supply `openshift_machine_network` yourself instead:
+
+```yaml
+openshift_machine_network_from_hosts: false
+openshift_machine_network:
+  - cidr: 172.16.1.0/24
 ```
 
 ### Multi-NIC (IP on one interface)
@@ -203,9 +232,11 @@ network_config:
     - interface: bond0.100
       address: 172.16.1.226
       prefix_length: 24
+      role: node
     - interface: bond1
       address: 10.254.224.226
       prefix_length: 24
+      role: storage
   bonds:
     - name: bond0
       mode: active-backup
@@ -252,8 +283,6 @@ layout is in `group_vars/openshift_agent_iso.yml`. Minimal shape:
 
 ```yaml
 openshift_cluster_name: compact
-openshift_machine_network:
-  - cidr: 172.16.1.0/24
 openshift_api_vips:
   - 172.16.1.240
 openshift_ingress_vips:
@@ -270,6 +299,7 @@ openshift_hosts:
         interface: eno1
         address: 172.16.1.226
         prefix_length: 24
+        # role: node  # optional for single-address hosts
       dns_resolver: [172.16.1.253]
       routes:
         - destination: 0.0.0.0/0

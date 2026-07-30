@@ -7,11 +7,11 @@
       - openshift_ssh_key | length > 0
       - openshift_pull_secret | length > 0
       - openshift_hosts | length > 0
-      - openshift_machine_network | length > 0
     fail_msg: >-
       Set openshift_cluster_name, openshift_base_domain, openshift_ssh_key,
-      openshift_pull_secret (or redhat_pull_secret), openshift_hosts, and
-      openshift_machine_network.
+      openshift_pull_secret (or redhat_pull_secret), and openshift_hosts.
+      machineNetwork is derived from host address role: node (see
+      derive-machine-network.yaml).
 
 - name: Validate openshift_hosts count maps to a supported topology
   ansible.builtin.assert:
@@ -111,6 +111,10 @@
   loop: "{{ openshift_hosts }}"
   loop_control:
     label: "{{ item.hostname | default('unknown') }}"
+
+- name: Derive machineNetwork from host address roles
+  ansible.builtin.include_tasks:
+    file: derive-machine-network.yaml
 
 - name: Create Agent ISO workspace
   become: true
