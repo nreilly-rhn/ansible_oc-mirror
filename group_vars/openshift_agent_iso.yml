@@ -46,13 +46,27 @@ openshift_hosts_sno: &openshift_hosts_sno
     role: master
     root_device_name: /dev/vda
     interfaces:
-      - name: enp1s0
-        mac_address: "52:54:00:00:00:10"
+      - name: eth0
+        mac_address: "52:54:01:00:00:10"  # 172.16.0.228
+      - name: eth1
+        mac_address: "52:54:01:00:00:11"  # 172.16.0.229
     network_config:
       ipv4:
-        interface: enp1s0
+        interface: bond0
         address: 172.16.0.230
         prefix_length: 23
+        role: node
+        ports:
+          - eth0
+          - eth1
+      bonds:
+        - name: bond0
+          mode: balance-xor
+          mac-address: "52:54:00:00:00:10"
+          ports:
+            - eth0
+            - eth1
+          primary: eno1
       dns_resolver:
         - 172.16.0.254
       routes:
