@@ -51,7 +51,7 @@ pullSecret: '{{ openshift_pull_secret | to_json }}'
 pullSecret: {{ openshift_pull_secret | trim | to_json }}
 {% endif %}
 sshKey: {{ openshift_ssh_key | trim | to_json }}
-imageDigestSources:
+imageContentSources:
 {% for entry in openshift_image_digest_sources %}
   - source: {{ entry.source }}
     mirrors:
