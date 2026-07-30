@@ -36,15 +36,37 @@ openshift_ssh_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICtP9TMnMae1URU2VWHupD/k
 openshift_mirror_registry: registry-int.lab.naramajac.xyz:8443
 openshift_oc_mirror_workdir: /opt/oc-mirror
 
+
+# ---------------------------------------------------------------------------
+# SNO example — Simple networking:
+#   eno1 → 172.16.1.0/23   (gw 1.254, dns 0.254)
+# ---------------------------------------------------------------------------
+openshift_hosts_sno: &openshift_hosts_sno
+  - hostname: sno
+    role: master
+    root_device_name: /dev/vda
+    interfaces:
+      - name: enp1s0
+        mac_address: "52:54:00:00:00:10"
+    network_config:
+      ipv4:
+        interface: enp1s0
+        address: 172.16.0.230
+        prefix_length: 23
+      dns_resolver:
+        - 172.16.0.254
+      routes:
+        - destination: 0.0.0.0/0
+          next_hop_address: 172.16.1.254
+
 # ---------------------------------------------------------------------------
 # Compact example — complex networking per host:
 #   4 ethernet NICs, 2 bonds, VLAN 100 on bond0
-#   bond0.100 → 172.16.1.0/24   role: node     (gw .254, dns .253)
-#   bond1     → 10.254.224.0/24 role: storage  (gw .254, dns .253)
+#   bond0.100 → 172.16.1.0/24   (gw .254, dns .253)
+#   bond1     → 10.254.224.0/24 (gw .254, dns .253)
 #   MAC prefix: 52:54:01
-#   machineNetwork is derived as 172.16.1.0/24 from role: node
 # ---------------------------------------------------------------------------
-openshift_hosts:
+openshift_hosts_compact: &openshift_hosts_compact
   - hostname: master-0.lab.naramajac.xyz
     role: master
     root_device_name: /dev/sda
@@ -61,7 +83,7 @@ openshift_hosts:
       ipv4_addresses:
         - interface: bond0.100
           address: 172.16.1.226
-          prefix_length: 24
+          prefix_length: 23
           role: node
         - interface: bond1
           address: 10.254.224.226
@@ -88,6 +110,8 @@ openshift_hosts:
       dns_resolver:
         - 172.16.1.253
         - 10.254.224.253
+      # Dual default routes need separate tables + source-based route-rules
+      # so replies egress the interface that owns the source IP.
       routes:
         - destination: "0.0.0.0/0"
           next_hop_address: 172.16.1.254
@@ -104,7 +128,6 @@ openshift_hosts:
         - ip_from: 10.254.224.226/32
           route_table: 101
           priority: 1001
-
   - hostname: master-1.lab.naramajac.xyz
     role: master
     root_device_name: /dev/sda
@@ -121,7 +144,7 @@ openshift_hosts:
       ipv4_addresses:
         - interface: bond0.100
           address: 172.16.1.227
-          prefix_length: 24
+          prefix_length: 23
           role: node
         - interface: bond1
           address: 10.254.224.227
@@ -164,7 +187,6 @@ openshift_hosts:
         - ip_from: 10.254.224.227/32
           route_table: 101
           priority: 1001
-
   - hostname: master-2.lab.naramajac.xyz
     role: master
     root_device_name: /dev/sda
@@ -181,7 +203,7 @@ openshift_hosts:
       ipv4_addresses:
         - interface: bond0.100
           address: 172.16.1.228
-          prefix_length: 24
+          prefix_length: 23
           role: node
         - interface: bond1
           address: 10.254.224.228
@@ -213,7 +235,7 @@ openshift_hosts:
           next_hop_address: 172.16.1.254
           next_hop_interface: bond0.100
           table_id: 100
-        - destination: "0.0.0.0/0"
+        - destination: "10.254.224.0/24"
           next_hop_address: 10.254.224.254
           next_hop_interface: bond1
           table_id: 101
@@ -225,29 +247,5 @@ openshift_hosts:
           route_table: 101
           priority: 1001
 
-# ---------------------------------------------------------------------------
-# Simpler SNO example (single ethernet) — swap in for a 1-node cluster.
-# Single address may omit role (defaults to node).
-# ---------------------------------------------------------------------------
-# openshift_cluster_name: sno
-# openshift_api_vips: []
-# openshift_ingress_vips: []
-# openshift_hosts:
-#   - hostname: sno.lab.naramajac.xyz
-#     role: master
-#     root_device_name: /dev/vda
-#     interfaces:
-#       - name: enp1s0
-#         mac_address: "52:54:00:00:00:10"
-#     network_config:
-#       ipv4:
-#         interface: enp1s0
-#         address: 172.16.0.10
-#         prefix_length: 24
-#         # role: node   # optional when only one address
-#       dns_resolver:
-#         - 172.16.0.254
-#       routes:
-#         - destination: 0.0.0.0/0
-#           next_hop_address: 172.16.0.1
-#           next_hop_interface: enp1s0
+openshift_hosts:
+  *openshift_hosts_compact
