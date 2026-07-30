@@ -248,4 +248,4 @@ openshift_hosts_compact: &openshift_hosts_compact
           priority: 1001
 
 openshift_hosts:
-  *openshift_hosts_compact
+  *openshift_hosts_sno
