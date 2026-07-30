@@ -242,9 +242,11 @@ network_config:
       mode: active-backup
       ports: [eno1, eno2]
       primary: eno1
+      mac_address: "52:54:01:00:00:a1"   # optional; NMState mac-address on the bond
     - name: bond1
       mode: 802.3ad
       ports: [eno3, eno4]
+      mac_address: "52:54:01:00:00:a2"
   vlans:
     - name: bond0.100
       id: 100

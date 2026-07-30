@@ -52,9 +52,16 @@ hosts:
 {% endfor %}
 {% for bond in bonds %}
 {% set addrs = addr_list | selectattr('interface', 'equalto', bond.name) | list %}
+{% set bond_mac = (
+     bond.mac_address | default('')
+     or (bond['mac-address'] if ('mac-address' in bond) else '')
+   ) %}
         - name: {{ bond.name }}
           type: bond
           state: up
+{% if bond_mac | length > 0 %}
+          mac-address: {{ bond_mac }}
+{% endif %}
 {% if addrs | length > 0 %}
           ipv4:
             enabled: true

@@ -62,11 +62,10 @@ openshift_hosts_sno: &openshift_hosts_sno
       bonds:
         - name: bond0
           mode: balance-xor
-          mac-address: "52:54:00:00:00:10"
+          mac_address: "52:54:00:00:00:10"
           ports:
             - eth0
             - eth1
-          primary: eno1
       dns_resolver:
         - 172.16.0.254
       routes:
