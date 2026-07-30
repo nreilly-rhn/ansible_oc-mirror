@@ -304,6 +304,6 @@ openshift_hosts_compact: &openshift_hosts_compact
           priority: 1001
 
 openshift_hosts:
-  *openshift_hosts_sno
+  *openshift_hosts_compact
 
 force_openshift_install_extract: false
