@@ -11,7 +11,7 @@ openshift_release_image: >-
 openshift_oc_bin: /opt/oc-mirror/oc
 
 # Topology is auto-detected from openshift_hosts count (1=sno, 3=compact, 5+=ha).
-openshift_cluster_name: compact
+openshift_cluster_name: sno
 openshift_base_domain: lab.naramajac.xyz
 
 # Required: set via -e or vault (also accepts redhat_pull_secret).
