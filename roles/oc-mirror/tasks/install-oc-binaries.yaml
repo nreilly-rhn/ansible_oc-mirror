@@ -9,7 +9,7 @@
     chdir: "{{ oc_mirror_workdir }}"
     argv:
       - "{{ oc_mirror_workdir }}/oc"
-      - --version
+      - version
       - --client=false
       - --output=json
   register: oc_version
