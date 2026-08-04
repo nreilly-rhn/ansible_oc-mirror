@@ -14,7 +14,7 @@
       - --output=json
   register: oc_version
   changed_when: false
-  failed_when: oc_version.rc != 0 or (openshift_version not in oc_version.stdout.releaseClientVersion)
+  failed_when: oc_version.rc != 0
   ignore_errors: true
 
 - name: Remove oc-mirror binary if OpenShift client is incorrect
@@ -29,7 +29,7 @@
     - openshift-install
 
 - name: Download and install OpenShift binaries
-  when: not oc_mirror_binary.stat.exists or openshift_version not in oc_version.stdout.releaseClientVersion
+  when: not oc_mirror_binary.stat.exists
   block:
     - name: Download OpenShift client archives
       ansible.builtin.uri:
