@@ -17,6 +17,10 @@
   failed_when: oc_version.rc != 0
   ignore_errors: true
 
+- name: Ensure OpenShift client is correct
+  ansible.builtin.debug:
+    msg: "OpenShift client version: {{ oc_version.stdout }}"
+
 - name: Remove oc-mirror binary if OpenShift client is incorrect
   when: oc_version is defined and oc_version.rc == 0
   ansible.builtin.file:
