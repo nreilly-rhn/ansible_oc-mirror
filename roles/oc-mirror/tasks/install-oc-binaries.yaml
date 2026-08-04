@@ -21,16 +21,15 @@
   ansible.builtin.debug:
     msg: "OpenShift client version: {{ oc_version.stdout }}"
 
-- name: Remove oc-mirror binary if OpenShift client is incorrect
-  when: oc_version is defined and openshift_version not in oc_version.stdout.releaseClientVersion
-  ansible.builtin.file:
-    path: "{{ oc_mirror_workdir }}/{{ item }}"
-    state: absent
-  with_items:
-    - oc-mirror
-    - oc
-    - kubectl
-    - openshift-install
+# - name: Remove oc-mirror binary if OpenShift client is incorrect
+#   when: oc_version is defined and openshift_version not in oc_version.stdout.releaseClientVersion
+#   ansible.builtin.file:
+#     path: "{{ oc_mirror_workdir }}/{{ item }}"
+#     state: absent
+#   with_items:
+#     - oc-mirror
+#     - oc
+#     - kubectl
 
 - name: Download and install OpenShift binaries
   when: not oc_mirror_binary.stat.exists
