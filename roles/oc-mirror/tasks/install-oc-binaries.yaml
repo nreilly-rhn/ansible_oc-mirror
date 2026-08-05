@@ -7,11 +7,8 @@
 - name: Ensure OpenShift client is correct
   ansible.builtin.command:
     chdir: "{{ oc_mirror_workdir }}"
-    argv:
-      - "{{ oc_mirror_workdir }}/oc"
-      - version
-      - --client=false
-      - \| grep ^Client | awk -F: '{print $2}'
+    cmd: >-
+      {{ oc_mirror_workdir }}/oc version --client=false | grep ^Client | awk -F: '{print $2}'
   register: oc_version
   changed_when: false
   failed_when: oc_version.rc != 0
