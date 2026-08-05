@@ -41,7 +41,7 @@
 - name: Remove oc-mirror binary if OpenShift client is incorrect
   when: >-
     oc_version.rc == 0 and
-    update_oc_mirror: true
+    update_oc_mirror | bool
   ansible.builtin.file:
     path: "{{ oc_mirror_workdir }}/{{ item }}"
     state: absent
