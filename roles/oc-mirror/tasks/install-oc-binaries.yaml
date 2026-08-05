@@ -17,6 +17,11 @@
   failed_when: oc_version.rc != 0
   ignore_errors: true
 
+- name: Set OpenShift client version fact
+  ansible.builtin.set_fact:
+    installed_oc_version: "{{ oc_version.stdout | from_json | json_query('releaseClientVersion') | default('unknown') }}"
+
+  when: oc_version is defined and oc_version.rc == 0
 - name: Set update flag if OpenShift client is incorrect
   ansible.builtin.set_fact:
     update_oc_mirror: true
@@ -28,7 +33,7 @@
 - name: Debug OpenShift client versions
   ansible.builtin.debug:
     msg:
-      - "OpenShift client version: {{ oc_version.stdout | from_json | json_query('releaseClientVersion') | default('unknown') }}"
+      - "OpenShift client version: {{ installed_oc_version }}"
       - "Required OpenShift client version: {{ openshift_version }}"
 
 - name: Remove oc-mirror binary if OpenShift client is incorrect
