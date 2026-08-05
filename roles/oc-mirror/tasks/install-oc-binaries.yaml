@@ -29,7 +29,7 @@
   ansible.builtin.set_fact:
     update_oc_mirror: true
   when: >-
-    oc_version is defined and
+    oc_version.rc == 0
     openshift_version not in
     installed_oc_version
 
