@@ -45,14 +45,14 @@
   changed_when: mirror_task.rc == 0
   until: mirror_task is not failed
 
-- name: Create a tarball for transfer
-  community.general.archive:
-    path:
-      - "{{ oc_mirror_workdir }}"
-    exclude_path:
-      - "{{ oc_mirror_workdir }}/working-dir"
-    mode: "0664"
-    format: tar
-    dest: "{{ oc_mirror_archive_path }}"
-  async: 7200
-  poll: 60
+# - name: Create a tarball for transfer
+#   community.general.archive:
+#     path:
+#       - "{{ oc_mirror_workdir }}"
+#     exclude_path:
+#       - "{{ oc_mirror_workdir }}/working-dir"
+#     mode: "0664"
+#     format: tar
+#     dest: "{{ oc_mirror_archive_path }}"
+#   async: 7200
+#   poll: 60
