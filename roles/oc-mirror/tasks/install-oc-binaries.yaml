@@ -18,8 +18,7 @@
   vars:
     query_json: releaseClientVersion
   ansible.builtin.set_fact:
-    installed_oc_version: >-
-      "{{ oc_version.stdout | trim }}"
+    installed_oc_version: "{{ oc_version.stdout }}"
 
 - name: Debug OpenShift client version
   ansible.builtin.debug:
