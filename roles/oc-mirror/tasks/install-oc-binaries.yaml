@@ -20,7 +20,7 @@
 
 - name: Set OpenShift client version fact
   vars:
-    query_json: "releaseClientVersion"
+    query_json: releaseClientVersion
   ansible.builtin.set_fact:
     installed_oc_version: >-
       "{{ oc_version.stdout | from_json | json_query(query_json) | default('unknown', true) }}"
