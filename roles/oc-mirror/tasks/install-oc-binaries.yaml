@@ -19,7 +19,7 @@
 
 - name: Ensure OpenShift client is correct
   ansible.builtin.debug:
-    msg: "OpenShift client version: {{ oc_version }}"
+    msg: "OpenShift client version: {{ oc_version.stdout | from_json | json_query('releaseClientVersion') }}"
 
 # - name: Remove oc-mirror binary if OpenShift client is incorrect
 #   when: oc_version is defined and openshift_version not in oc_version.stdout.releaseClientVersion
