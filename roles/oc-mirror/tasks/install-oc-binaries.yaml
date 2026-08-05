@@ -54,7 +54,7 @@
 - name: Download and install OpenShift binaries
   when: >-
     oc_version.rc != 0 and
-    update_oc_mirror | bool
+    update_oc_mirror | bool | default(true)
   block:
     - name: Download OpenShift client archives
       ansible.builtin.uri:
