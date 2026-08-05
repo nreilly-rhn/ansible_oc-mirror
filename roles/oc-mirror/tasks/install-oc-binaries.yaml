@@ -24,7 +24,7 @@
     oc_version.rc == 2
 
 - name: Set OpenShift client version fact
-  when: oc_installed | bool
+  #when: oc_installed | bool
   ansible.builtin.set_fact:
     installed_oc_version: >-
       "{{ oc_version.stdout | from_json | json_query('releaseClientVersion') | default('unknown', true) }}"
