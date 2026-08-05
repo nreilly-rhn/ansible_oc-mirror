@@ -29,7 +29,7 @@
     update_oc_mirror: true
   when: >-
     oc_version.rc == 0 and
-    openshift_version not in installed_oc_version
+    openshift_version == installed_oc_version
 
 - name: Debug OpenShift client versions
   ansible.builtin.debug:
