@@ -36,6 +36,7 @@
     msg:
       - "Installed OpenShift version: {{ installed_oc_version | default('not installed') }}"
       - "Required OpenShift version: {{ openshift_version }}"
+      - "{{ update_oc_mirror }}"
 
 - name: Remove oc-mirror binary if OpenShift client is incorrect
   when: >-
