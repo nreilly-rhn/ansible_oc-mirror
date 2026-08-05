@@ -2,7 +2,6 @@
 # Shared by connected_mirror and disconnected_mirror (via parent group oc_mirror).
 oc_mirror_workdir: /opt/oc-mirror
 oc_mirror_archive_path: /var/tmp/oc-mirror.tar
-openshift_version: 4.22.6
 quay_workdir: /opt/quay-mirror
 mirror_set_config:
   catalogs:

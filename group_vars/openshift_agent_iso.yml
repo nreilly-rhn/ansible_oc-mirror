@@ -1,7 +1,6 @@
 ---
 # Example Agent ISO inputs. Override per cluster as needed.
 openshift_agent_iso_workdir: /opt/openshift-agent-iso
-openshift_version: 4.22.4
 # oc-mirror v2 path (see IDMS: .../openshift/release-images)
 openshift_release_image: >-
   {{ openshift_mirror_registry }}/openshift/release-images:{{
