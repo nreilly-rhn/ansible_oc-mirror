@@ -163,15 +163,15 @@
 
 - name: Prepare disconnected mirror settings for install-config
   ansible.builtin.include_tasks:
-    file: prepare-mirror-config.yaml
+    file: create-iso/prepare-mirror-config.yaml
 
 - name: Extract openshift-install from mirrored release image
   ansible.builtin.include_tasks:
-    file: extract-installer.yaml
+    file: create-iso/extract-installer.yaml
 
 - name: Render install-config and agent-config
   ansible.builtin.include_tasks:
-    file: render-configs.yaml
+    file: create-iso/render-configs.yaml
 
 - name: Generate Agent-based Installer ISO
   ansible.builtin.include_tasks:

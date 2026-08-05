@@ -1,0 +1,46 @@
+- name: Set fact for kubeconfig path
+  ansible.builtin.set_fact:
+    openshift_kubeconfig: "{{ openshift_agent_iso_install_dir }}/auth/kubeconfig"
+# Disable default operatorhub catalog sources in disconnected environments. See: https://docs.redhat.com/en/documentation/openshift_container_platform/4.22/html-single/disconnected_environments/index#olm-restricted-networks-operatorhub_olm-restricted-networks
+
+
+- name: Disable default operatorhub catalog sources
+  kubernetes.core.k8s_json_patch:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    kind: OperatorHub
+    name: cluster
+    patch:
+      - op: add
+        path: /spec/disableAllDefaultSources
+        value: true
+
+# Add custom catalog sources for disconnected environments.  See: https://docs.redhat.com/en/documentation/openshift_container_platform/4.22/html-single/disconnected_environments/index#olm-creating-catalog-from-index_olm-restricted-networks
+
+- name: Read YAML file
+  ansible.builtin.slurp:
+    src: "{{ oc_mirror_workdir }}/working-dir/cluster-resources/cs-redhat-operator-index-v4-22.yaml"
+  register: rh_operator_catalog_source_yaml
+
+- name: Fix catalog source YAML for disconnected environment
+  ansible.utils.update_fact:
+    updates:
+      - path: "metadata.name"
+        value: "redhat-operators"
+  register: rh_operator_catalog_source_yaml_fixed
+
+# - name: Save updates to disk
+#   ansible.builtin.copy:
+#     dest: "{{ oc_mirror_workdir }}/working-dir/cluster-resources/cs-redhat-operator-index-v4-22.yaml"
+#     content: "{{ rh_operator_catalog_source_yaml_fixed | to_nice_yaml }}"
+#     mode: "0644"
+
+- name: Apply catalog source YAML to cluster
+  kubernetes.core.k8s:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    state: present
+    definition: "{{ rh_operator_catalog_source_yaml_fixed }}"
+
+
+# Updating disconnected clusters using the Openshift Update Service. See: https://docs.redhat.com/en/documentation/openshift_container_platform/4.22/html-single/disconnected_environments/index#updating-disconnected-cluster-osus
+
+- name: 
