@@ -22,13 +22,13 @@
     installed_oc_version: >-
       "{{ oc_version.stdout | from_json | json_query('releaseClientVersion') | default('unknown') }}"
 
-- name: Set update flag if OpenShift client is incorrect
-  ansible.builtin.set_fact:
-    update_oc_mirror: true
-  when: >-
-    oc_version is defined and
-    openshift_version not in
-    installed_oc_version
+# - name: Set update flag if OpenShift client is incorrect
+#   ansible.builtin.set_fact:
+#     update_oc_mirror: true
+#   when: >-
+#     oc_version is defined and
+#     openshift_version not in
+#     installed_oc_version
 
 - name: Debug OpenShift client versions
   ansible.builtin.debug:
