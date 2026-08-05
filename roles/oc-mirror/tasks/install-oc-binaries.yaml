@@ -35,7 +35,7 @@
 - name: Debug OpenShift client versions
   ansible.builtin.debug:
     msg:
-      - "Installed OpenShift version: {{ oc_version.stdout | json_query(query_json) | default('unknown', true) }}"
+      - "Installed OpenShift version: {{ installed_oc_version | default('not installed') }}"
       - "Required OpenShift version: {{ openshift_version }}"
 
 - name: Remove oc-mirror binary if OpenShift client is incorrect
