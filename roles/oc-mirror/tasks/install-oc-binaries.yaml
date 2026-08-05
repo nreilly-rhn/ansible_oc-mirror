@@ -19,7 +19,8 @@
 
 - name: Set OpenShift client version fact
   ansible.builtin.set_fact:
-    installed_oc_version: "{{ oc_version.stdout | from_json | json_query('releaseClientVersion') | default('unknown') }}"
+    installed_oc_version: >
+      "{{ oc_version.stdout | from_json | json_query('releaseClientVersion') | default('unknown') }}"
 
   when: oc_version is defined and oc_version.rc == 0
 - name: Set update flag if OpenShift client is incorrect
@@ -28,7 +29,7 @@
   when: >-
     oc_version is defined and
     openshift_version not in
-    oc_version.stdout | from_json | json_query('releaseClientVersion') | default('unknown')
+    installed_oc_version
 
 - name: Debug OpenShift client versions
   ansible.builtin.debug:
