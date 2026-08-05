@@ -53,8 +53,8 @@
 
 - name: Download and install OpenShift binaries
   when: >-
-    oc_version.rc != 0 and
-    installed_oc_version | default('not installed') != openshift_version
+    oc_version.rc != 0 or
+    installed_oc_version | default('not installed') == "not installed"
   block:
     - name: Download OpenShift client archives
       ansible.builtin.uri:
