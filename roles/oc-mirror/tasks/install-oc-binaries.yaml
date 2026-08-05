@@ -25,6 +25,10 @@
     installed_oc_version: >-
       "{{ oc_version.stdout | to_json | community.general.json_query(query_json) }}"
 
+- name: Debug OpenShift client version
+  ansible.builtin.debug:
+    msg: "Installed OpenShift version: {{ installed_oc_version }}"
+
 - name: Set update flag if OpenShift client is incorrect
   ansible.builtin.set_fact:
     update_oc_mirror: true
