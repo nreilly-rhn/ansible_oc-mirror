@@ -23,7 +23,7 @@
     query_json: releaseClientVersion
   ansible.builtin.set_fact:
     installed_oc_version: >-
-      "{{ oc_version.stdout | community.general.json_query(query_json) }}"
+      "{{ oc_version.stdout | to_json | community.general.json_query(query_json) }}"
 
 - name: Set update flag if OpenShift client is incorrect
   ansible.builtin.set_fact:
