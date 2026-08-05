@@ -17,17 +17,11 @@
   failed_when: oc_version.rc != 0
   ignore_errors: true
 
-- name: Set fact if OpenShift client is installed
-  ansible.builtin.set_fact:
-    oc_installed: false
-  when: >-
-    oc_version.rc == 2
 
 - name: Set OpenShift client version fact
-  #when: oc_installed | bool
   ansible.builtin.set_fact:
     installed_oc_version: >-
-      oc_version.stdout | from_json | json_query('releaseClientVersion') | default('unknown', true)
+      "{{ oc_version.stdout | from_json | json_query('releaseClientVersion') | default('unknown', true) }}"
 
 # - name: Set update flag if OpenShift client is incorrect
 #   ansible.builtin.set_fact:
