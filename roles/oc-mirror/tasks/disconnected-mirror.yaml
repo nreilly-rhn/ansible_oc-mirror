@@ -36,22 +36,6 @@
     authfile: "{{ ansible_facts.user_dir }}/.dockercfg"
     tlsverify: false
 
-# - name: Login to the Mirror
-#   ansible.builtin.command:
-#     argv:
-#       - podman
-#       - login
-#       - --username
-#       - "{{ quay_user }}"
-#       - --password
-#       - "{{ quay_password }}"
-#       - --authfile
-#       - "{{ ansible_facts.user_dir }}/.dockercfg"
-#       - --tls-verify=false
-#       - "{{ ansible_facts.fqdn }}:8443"
-#     creates: "{{ ansible_facts.user_dir }}/.dockercfg"
-#   no_log: true
-
 - name: Run oc-mirror - Disk to Mirror
   ansible.builtin.command:
     argv:

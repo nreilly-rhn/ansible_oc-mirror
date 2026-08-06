@@ -114,7 +114,7 @@
 
 - name: Derive machineNetwork from host address roles
   ansible.builtin.include_tasks:
-    file: derive-machine-network.yaml
+    file: create-iso/derive-machine-network.yaml
 
 - name: Create Agent ISO workspace
   become: true
