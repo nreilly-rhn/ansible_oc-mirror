@@ -18,7 +18,8 @@
 
 - name: Read YAML file
   ansible.builtin.slurp:
-    src: "{{ oc_mirror_workdir }}/working-dir/cluster-resources/cs-redhat-operator-index-v4-22.yaml"
+    src: >-
+      "{{ oc_mirror_workdir }}/working-dir/cluster-resources/cs-redhat-operator-index-v{{ openshift_version.split('.')[0:1] | join('-') }}.yaml"
   register: rh_operator_catalog_source_yaml
 
 - name: Fix catalog source YAML for disconnected environment
@@ -53,11 +54,13 @@
     src: graph-data-containerfile.j2
     dest: "{{ openshift_agent_iso_workdir }}/cincinnati-graph-data/Containerfile"
     mode: "0644"
+
 - name: Copy cincinnati graph-data to build_dir
   ansible.builtin.copy:
     src: "{{ oc_mirror_workdir }}/cincinnati-graph-data.tar.gz"
     dest: "{{ openshift_agent_iso_workdir }}/cincinnati-graph-data/cincinnati-graph-data.tar.gz"
     mode: "0644"
+
 - name: Build cincinnati graph-data container image
   containers.podman.podman_image:
     name: "{{ openshift_mirror_registry }}/cincinnati-graph-data:latest"
