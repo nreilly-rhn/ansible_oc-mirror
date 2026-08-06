@@ -175,4 +175,4 @@
 
 - name: Generate Agent-based Installer ISO
   ansible.builtin.include_tasks:
-    file: create-image.yaml
+    file: create-iso/create-image.yaml
