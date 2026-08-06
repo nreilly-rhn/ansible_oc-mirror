@@ -19,7 +19,9 @@
 - name: Read YAML file
   ansible.builtin.slurp:
     src: >-
-      "{{ oc_mirror_workdir }}/working-dir/cluster-resources/cs-redhat-operator-index-v{{ openshift_version.split('.')[0:1] | join('-') }}.yaml"
+      "{{ oc_mirror_workdir }}
+      /working-dir/cluster-resources/cs-redhat-operator-index-v
+      {{ openshift_version.split('.')[0:1] | join('-') }}.yaml"
   register: rh_operator_catalog_source_yaml
 
 - name: Fix catalog source YAML for disconnected environment
