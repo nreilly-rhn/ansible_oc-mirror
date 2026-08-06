@@ -61,6 +61,7 @@
     mode: "0644"
 
 - name: Create a tarball for transfer
+  when: mirror_config.changed or (force_oc_mirror | default(false) | bool)
   community.general.archive:
     path:
       - "{{ oc_mirror_workdir }}"

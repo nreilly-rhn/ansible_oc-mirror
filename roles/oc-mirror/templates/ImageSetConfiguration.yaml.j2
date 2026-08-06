@@ -7,8 +7,8 @@ mirror:
       - amd64
     channels:
       - name: stable-{{ openshift_version.split('.')[0:2] | join('.') }}
-        minVersion: {{ openshift_version }}
-        maxVersion: {{ openshift_version }}
+        minVersion: {{ openshift_minVersion | default(openshift_version) }}
+        maxVersion: {{ openshift_maxVersion | default(openshift_version) }}
     graph: true
 {% if mirror_set_config.catalogs | default([]) | length > 0 %}
   operators:
