@@ -1,0 +1,101 @@
+---
+
+- name: Create the openshift-update-service namespace
+  kubernetes.core.k8s:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: openshift-update-service
+        annotations:
+          openshift.io/node-selector: ""
+        labels:
+          openshift.io/cluster-monitoring: "true"
+
+- name: Install the Cincinnati Update Operator
+  kubernetes.core.k8s:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    state: present
+    definition:
+      apiVersion: operators.coreos.com/v1
+      kind: OperatorGroup
+      metadata:
+        name: update-service-operator-group
+        namespace: openshift-update-service
+      spec:
+        targetNamespaces:
+          - openshift-update-service
+
+- name: Create the Cincinnati Update Operator subscription
+  kubernetes.core.k8s:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    state: present
+    definition:
+      apiVersion: operators.coreos.com/v1alpha1
+      kind: Subscription
+      metadata:
+        name: cincinnati-operator-subscription
+        namespace: openshift-update-service
+      spec:
+        channel: v1
+        installPlanApproval: Automatic
+        name: cincinnati-operator
+        source: redhat-operators
+        sourceNamespace: openshift-marketplace
+
+- name: Wait for Subscription to report installedCSV
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: cincinnati-operator-subscription
+    namespace: openshift-update-service
+  register: cincinnati_subscription
+  failed_when: false
+  until: >-
+    cincinnati_subscription.resources is defined
+    and (cincinnati_subscription.resources | length) > 0
+    and cincinnati_subscription.resources[0].status.installedCSV is defined
+    and (cincinnati_subscription.resources[0].status.installedCSV | length) > 0
+  retries: 60
+  delay: 15
+
+- name: Assert Subscription has installedCSV
+  ansible.builtin.assert:
+    that:
+      - cincinnati_subscription.resources is defined
+      - (cincinnati_subscription.resources | length) > 0
+      - cincinnati_subscription.resources[0].status.installedCSV is defined
+      - (cincinnati_subscription.resources[0].status.installedCSV | length) > 0
+    fail_msg: >-
+      Cincinnati Subscription did not report installedCSV in time
+      (API may have been unreachable, or OLM install is stuck).
+
+- name: Wait for Cincinnati CSV to succeed
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: "{{ cincinnati_subscription.resources[0].status.installedCSV }}"
+    namespace: openshift-update-service
+  register: cincinnati_csv
+  failed_when: false
+  until: >-
+    cincinnati_csv.resources is defined
+    and (cincinnati_csv.resources | length) > 0
+    and (cincinnati_csv.resources[0].status.phase | default('')) == 'Succeeded'
+  retries: 60
+  delay: 15
+
+- name: Assert Cincinnati CSV succeeded
+  ansible.builtin.assert:
+    that:
+      - cincinnati_csv.resources is defined
+      - (cincinnati_csv.resources | length) > 0
+      - (cincinnati_csv.resources[0].status.phase | default('')) == 'Succeeded'
+    fail_msg: >-
+      Cincinnati CSV {{ cincinnati_subscription.resources[0].status.installedCSV }}
+      did not reach Succeeded in time.
+...

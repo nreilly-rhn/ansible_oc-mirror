@@ -1,0 +1,43 @@
+kind: ImageSetConfiguration
+apiVersion: mirror.openshift.io/v2alpha1
+mirror:
+  platform:
+    kubeVirtContainer: true
+    architectures:
+      - amd64
+    channels:
+      - name: stable-{{ openshift_version.split('.')[0:2] | join('.') }}
+        minVersion: {{ openshift_minVersion | default(openshift_version) }}
+        maxVersion: {{ openshift_maxVersion | default(openshift_version) }}
+    graph: true
+{% if mirror_set_config.catalogs | default([]) | length > 0 %}
+  operators:
+{% for catalog in mirror_set_config.catalogs %}
+    - catalog: {{ catalog.name }}
+      full: {{ catalog.full | default(false) | bool | lower }}
+{% if catalog.packages | default([]) | length > 0 %}
+      packages:
+{% for package in catalog.packages %}
+        - name: {{ package.name }}
+{% if package.channels | default([]) | length > 0 %}
+          channels:
+{% for channel in package.channels %}
+            - name: {{ channel.name }}
+{% if channel.minVersion is defined %}
+              minVersion: {{ channel.minVersion }}
+{% endif %}
+{% if channel.maxVersion is defined %}
+              maxVersion: {{ channel.maxVersion }}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% if mirror_set_config.additionalImages | default([]) | length > 0 %}
+  additionalImages:
+{% for image in mirror_set_config.additionalImages %}
+    - name: {{ image.name }}
+{% endfor %}
+{% endif %}

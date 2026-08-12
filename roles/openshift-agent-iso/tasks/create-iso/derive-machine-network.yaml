@@ -1,0 +1,189 @@
+---
+# Derive install-config machineNetwork from host address roles.
+# - One address and no role → role defaults to "node"
+# - Multiple addresses → every address needs role; exactly one "node" per host
+# - All hosts' node addresses must resolve to the same CIDR
+# Optional override: set openshift_machine_network_from_hosts: false and provide
+# openshift_machine_network explicitly.
+
+- name: Skip derivation when machineNetwork is provided explicitly
+  when: not (openshift_machine_network_from_hosts | default(true) | bool)
+  block:
+    - name: Require explicit openshift_machine_network when derivation is disabled
+      ansible.builtin.assert:
+        that:
+          - openshift_machine_network | default([]) | length > 0
+        fail_msg: >-
+          openshift_machine_network_from_hosts is false; set
+          openshift_machine_network with the node CIDR
+          (e.g. [{cidr: 172.16.1.0/24}]).
+
+    - name: Set node CIDR fact from explicit machineNetwork
+      ansible.builtin.set_fact:
+        openshift_node_network_cidr: "{{ openshift_machine_network[0].cidr }}"
+
+- name: Derive machineNetwork from openshift_hosts address roles
+  when: openshift_machine_network_from_hosts | default(true) | bool
+  block:
+    - name: Reset derived network facts
+      ansible.builtin.set_fact:
+        openshift_host_address_entries: []
+        openshift_node_network_cidrs: []
+
+    - name: Collect host IPv4 address entries
+      ansible.builtin.set_fact:
+        openshift_host_address_entries: >-
+          {{
+            openshift_host_address_entries + [{
+              'hostname': item.hostname,
+              'addresses': (
+                item.network_config.ipv4_addresses
+                if (
+                  item.network_config is defined
+                  and item.network_config.ipv4_addresses is defined
+                  and (item.network_config.ipv4_addresses | length) > 0
+                )
+                else (
+                  [item.network_config.ipv4]
+                  if (
+                    item.network_config is defined
+                    and item.network_config.ipv4 is defined
+                  )
+                  else []
+                )
+              )
+            }]
+          }}
+      loop: "{{ openshift_hosts }}"
+      loop_control:
+        label: "{{ item.hostname | default('unknown') }}"
+
+    - name: Validate each host has at least one IPv4 address
+      ansible.builtin.assert:
+        that:
+          - item.addresses | length > 0
+        fail_msg: >-
+          Host {{ item.hostname }} has no network_config.ipv4 or
+          network_config.ipv4_addresses; cannot derive machineNetwork.
+      loop: "{{ openshift_host_address_entries }}"
+      loop_control:
+        label: "{{ item.hostname }}"
+
+    - name: Validate address roles on multi-address hosts
+      ansible.builtin.assert:
+        that:
+          - item.addresses | selectattr('role', 'defined') | list | length
+            == (item.addresses | length)
+          - (
+              item.addresses
+              | selectattr('role', 'equalto', 'node')
+              | list
+              | length
+            ) == 1
+        fail_msg: >-
+          Host {{ item.hostname }} has {{ item.addresses | length }} address(es).
+          When more than one address is present, every entry needs an explicit
+          role and exactly one must be role: node. Found roles:
+          {{
+            item.addresses
+            | map(attribute='role')
+            | map('default', '(missing)')
+            | list
+          }}.
+      when: item.addresses | length > 1
+      loop: "{{ openshift_host_address_entries }}"
+      loop_control:
+        label: "{{ item.hostname }}"
+
+    - name: Validate single-address hosts resolve to a node role
+      ansible.builtin.assert:
+        that:
+          - (item.addresses[0].role | default('node')) == 'node'
+        fail_msg: >-
+          Host {{ item.hostname }} has a single address that is not role: node.
+          Omit role (defaults to node) or set role: node explicitly.
+      when: item.addresses | length == 1
+      loop: "{{ openshift_host_address_entries }}"
+      loop_control:
+        label: "{{ item.hostname }}"
+
+    - name: "Build node address CIDRs from role: node entries"
+      ansible.builtin.set_fact:
+        openshift_node_network_cidrs: >-
+          {{
+            openshift_node_network_cidrs + [{
+              'hostname': item.0.hostname,
+              'address': item.1.address,
+              'prefix_length': item.1.prefix_length,
+              'cidr': (
+                (item.1.address ~ '/' ~ item.1.prefix_length)
+                | ansible.utils.ipaddr('network/prefix')
+              )
+            }]
+          }}
+      when: (item.1.role | default('node')) == 'node'
+      loop: "{{ openshift_host_address_entries | subelements('addresses') }}"
+      loop_control:
+        label: "{{ item.0.hostname }} {{ item.1.address | default('') }}"
+
+    - name: Require a node network address on every host
+      ansible.builtin.assert:
+        that:
+          - openshift_node_network_cidrs | length == (openshift_hosts | length)
+        fail_msg: >-
+          Expected one role: node address per host
+          ({{ openshift_hosts | length }} host(s)), found
+          {{ openshift_node_network_cidrs | length }}:
+          {{ openshift_node_network_cidrs | map(attribute='hostname') | list }}.
+
+    - name: Require a single shared node CIDR across hosts
+      ansible.builtin.assert:
+        that:
+          - (
+              openshift_node_network_cidrs
+              | map(attribute='cidr')
+              | unique
+              | list
+              | length
+            ) == 1
+        fail_msg: >-
+          All role: node addresses must be in the same CIDR. Found:
+          {{
+            openshift_node_network_cidrs
+            | map(attribute='cidr')
+            | unique
+            | list
+          }}
+          from {{ openshift_node_network_cidrs }}.
+
+    - name: Set machineNetwork from derived node CIDR
+      ansible.builtin.set_fact:
+        openshift_machine_network:
+          - cidr: "{{ openshift_node_network_cidrs[0].cidr }}"
+        openshift_node_network_cidr: "{{ openshift_node_network_cidrs[0].cidr }}"
+
+    - name: Show derived machineNetwork
+      ansible.builtin.debug:
+        msg: >-
+          Derived machineNetwork {{ openshift_node_network_cidr }} from
+          role: node addresses on {{ openshift_hosts | length }} host(s).
+
+- name: Validate API VIPs are inside the node network
+  when: openshift_api_vips | default([]) | length > 0
+  ansible.builtin.assert:
+    that:
+      - (item | ansible.utils.ipaddr(openshift_node_network_cidr)) == item
+    fail_msg: >-
+      openshift_api_vips entry {{ item }} is not in node network
+      {{ openshift_node_network_cidr }}.
+  loop: "{{ openshift_api_vips }}"
+
+- name: Validate ingress VIPs are inside the node network
+  when: openshift_ingress_vips | default([]) | length > 0
+  ansible.builtin.assert:
+    that:
+      - (item | ansible.utils.ipaddr(openshift_node_network_cidr)) == item
+    fail_msg: >-
+      openshift_ingress_vips entry {{ item }} is not in node network
+      {{ openshift_node_network_cidr }}.
+  loop: "{{ openshift_ingress_vips }}"

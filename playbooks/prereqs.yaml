@@ -1,0 +1,19 @@
+---
+######################################################
+# ansible-playbook playbooks/prereqs.yaml \
+#   -i inventory.yaml \
+######################################################
+- name: Install prerequisites
+  hosts: localhost
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Install required packages
+      ansible.builtin.package:
+        name:
+          - python3-pip
+    - name: Install required Python packages
+      ansible.builtin.pip:
+        name:
+          - netaddr
+          - jmespath

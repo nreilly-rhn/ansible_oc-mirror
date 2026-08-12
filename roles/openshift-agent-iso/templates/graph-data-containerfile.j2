@@ -1,0 +1,11 @@
+FROM {{ openshift_mirror_registry }}/ubi9/ubi:latest
+
+COPY cincinnati-graph-data.tar.gz /cincinnati-graph-data.tar.gz
+
+RUN mkdir -p /var/lib/cincinnati-graph-data \
+  && tar xvzf /cincinnati-graph-data.tar.gz \
+  -C /var/lib/cincinnati-graph-data/ \
+  --no-overwrite-dir --no-same-owner \
+  && rm -f /cincinnati-graph-data.tar.gz
+
+CMD ["/bin/bash", "-c", "exec cp -rp /var/lib/cincinnati-graph-data/* /var/lib/cincinnati/graph-data"]

@@ -1,0 +1,83 @@
+---
+- name: Set rendezvous IP
+  ansible.builtin.set_fact:
+    openshift_agent_rendezvous_ip: >-
+      {{
+        openshift_rendezvous_ip
+        if (openshift_rendezvous_ip | default('') | length > 0)
+        else (
+          openshift_hosts[0].network_config.ipv4.address
+          | default(
+              (
+                openshift_hosts[0].network_config.ipv4_addresses
+                | default([])
+                | first
+                | default({})
+              ).address
+              | default('')
+            )
+        )
+      }}
+
+- name: Validate rendezvous IP is set
+  ansible.builtin.assert:
+    that:
+      - openshift_agent_rendezvous_ip | length > 0
+    fail_msg: >-
+      Set openshift_rendezvous_ip or provide
+      openshift_hosts[0].network_config.ipv4.address (or ipv4_addresses).
+
+- name: Validate rendezvous IP is inside the node network
+  when: openshift_node_network_cidr | default('') | length > 0
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          openshift_agent_rendezvous_ip
+          | ansible.utils.ipaddr(openshift_node_network_cidr)
+        ) == openshift_agent_rendezvous_ip
+    fail_msg: >-
+      rendezvousIP {{ openshift_agent_rendezvous_ip }} is not in node network
+      {{ openshift_node_network_cidr }}.
+
+- name: Require derived node network CIDR before rendering install-config
+  ansible.builtin.assert:
+    that:
+      - openshift_node_network_cidr | default('') | length > 0
+    fail_msg: >-
+      openshift_node_network_cidr is not set. Ensure
+      derive-machine-network.yaml ran successfully (host addresses need
+      role: node, or set openshift_machine_network_from_hosts: false with an
+      explicit openshift_machine_network).
+
+- name: Render install-config.yaml (persistent copy)
+  ansible.builtin.template:
+    src: install-config.yaml.j2
+    dest: "{{ openshift_agent_iso_workdir }}/install-config.yaml"
+    mode: "0600"
+  no_log: true
+
+- name: Render agent-config.yaml (persistent copy)
+  ansible.builtin.template:
+    src: agent-config.yaml.j2
+    dest: "{{ openshift_agent_iso_workdir }}/agent-config.yaml"
+    mode: "0644"
+
+- name: Create install directory for Agent ISO creation
+  ansible.builtin.file:
+    path: "{{ openshift_agent_iso_install_dir }}"
+    state: directory
+    mode: "0755"
+    owner: "{{ ansible_user | default(omit) }}"
+    group: "{{ ansible_user | default(omit) }}"
+
+# openshift-install agent create image consumes configs from --dir.
+- name: Copy configs into install directory for ISO creation
+  ansible.builtin.copy:
+    src: "{{ openshift_agent_iso_workdir }}/{{ item }}"
+    dest: "{{ openshift_agent_iso_install_dir }}/{{ item }}"
+    remote_src: true
+    mode: preserve
+  loop:
+    - install-config.yaml
+    - agent-config.yaml

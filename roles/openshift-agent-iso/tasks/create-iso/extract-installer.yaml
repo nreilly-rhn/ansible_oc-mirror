@@ -1,0 +1,54 @@
+---
+# oc adm release extract does NOT honor registries.conf for payload image
+# pulls. Pass --idms-file so quay.io/... digests rewrite to the mirror.
+
+- name: Prefer oc-mirror IDMS file for release extract
+  when: openshift_idms_files.files | default([]) | length > 0
+  ansible.builtin.set_fact:
+    openshift_release_extract_idms_file: "{{ openshift_idms_files.files[0].path }}"
+
+- name: Render IDMS file for release extract when none was found
+  when: openshift_release_extract_idms_file is not defined
+  block:
+    - name: Write ImageDigestMirrorSet from imageDigestSources
+      ansible.builtin.template:
+        src: idms-release-extract.yaml.j2
+        dest: "{{ openshift_agent_iso_workdir }}/idms-release-extract.yaml"
+        mode: "0644"
+
+    - name: Use rendered IDMS for release extract
+      ansible.builtin.set_fact:
+        openshift_release_extract_idms_file: >-
+          {{ openshift_agent_iso_workdir }}/idms-release-extract.yaml
+
+- name: Check for existing openshift-install binary
+  ansible.builtin.stat:
+    path: "{{ openshift_agent_iso_workdir }}/openshift-install"
+  register: openshift_install_binary
+
+- name: Extract openshift-install and oc CLI from release image
+  when: >-
+    (not openshift_install_binary.stat.exists)
+    or (force_openshift_install_extract | default(false) | bool)
+  ansible.builtin.command:
+    argv:
+      - "{{ openshift_oc_bin }}"
+      - adm
+      - release
+      - extract
+      - --registry-config={{ ansible_facts.user_dir }}/.dockercfg
+      - --insecure=true
+      - --idms-file={{ openshift_release_extract_idms_file }}
+      - --command={{ item }}
+      - --to={{ openshift_agent_iso_workdir }}
+      - --from={{ openshift_release_image }}
+  with_items:
+    - openshift-install
+    - oc
+  register: openshift_install_extract
+  changed_when: openshift_install_extract.rc == 0
+
+- name: Ensure openshift-install is executable
+  ansible.builtin.file:
+    path: "{{ openshift_agent_iso_workdir }}/openshift-install"
+    mode: "0755"

@@ -1,0 +1,58 @@
+---
+- name: Check whether oc-mirror workspace is populated
+  ansible.builtin.stat:
+    path: "{{ oc_mirror_workdir }}/ImageSetConfiguration.yaml"
+  register: oc_mirror_workspace
+
+- name: Check for transfer archive
+  ansible.builtin.stat:
+    path: "{{ oc_mirror_archive_path }}"
+  register: oc_mirror_archive
+  when: not oc_mirror_workspace.stat.exists
+
+- name: Fail when workspace and archive are both missing
+  ansible.builtin.fail:
+    msg: >-
+      No mirror workspace at {{ oc_mirror_workdir }} and no archive at
+      {{ oc_mirror_archive_path }}.
+  when:
+    - not oc_mirror_workspace.stat.exists
+    - not oc_mirror_archive.stat.exists
+
+- name: Restore workspace from transfer archive
+  ansible.builtin.unarchive:
+    src: "{{ oc_mirror_archive_path }}"
+    dest: "{{ oc_mirror_workdir | dirname }}"
+    remote_src: true
+  when:
+    - not oc_mirror_workspace.stat.exists
+    - oc_mirror_archive.stat.exists
+
+- name: Login to the Mirror
+  containers.podman.podman_login:
+    registry: "{{ ansible_facts['fqdn'] }}:8443"
+    username: "{{ quay_user }}"
+    password: "{{ quay_password }}"
+    authfile: "{{ ansible_facts.user_dir }}/.dockercfg"
+    tlsverify: false
+
+- name: Run oc-mirror - Disk to Mirror
+  ansible.builtin.command:
+    argv:
+      - "{{ oc_mirror_workdir }}/oc-mirror"
+      - --v2
+      - --from
+      - "file://{{ oc_mirror_workdir }}"
+      - --config
+      - "{{ oc_mirror_workdir }}/ImageSetConfiguration.yaml"
+      - --authfile
+      - "{{ ansible_facts.user_dir }}/.dockercfg"
+      - --dest-tls-verify=false
+      - "docker://{{ ansible_facts.fqdn }}:8443"
+  register: mirror_task
+  async: 7200
+  poll: 60
+  retries: 10
+  delay: 10
+  changed_when: mirror_task.rc == 0
+  until: mirror_task is not failed

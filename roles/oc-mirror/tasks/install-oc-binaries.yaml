@@ -1,0 +1,82 @@
+---
+- name: Check for oc-mirror binary
+  ansible.builtin.stat:
+    path: "{{ oc_mirror_workdir }}/oc-mirror"
+  register: oc_mirror_binary
+
+- name: Ensure OpenShift client is correct
+  ansible.builtin.shell:
+    chdir: "{{ oc_mirror_workdir }}"
+    cmd: "{{ oc_mirror_workdir }}/oc version --client=false | grep ^Client | awk -F: '{print $2}' |sed 's/ //g'"
+  register: oc_version
+  changed_when: false
+  failed_when: oc_version.rc != 0
+  ignore_errors: true
+
+- name: Set OpenShift client version fact
+  when: oc_version.rc == 0
+  ansible.builtin.set_fact:
+    installed_oc_version: "{{ oc_version.stdout }}"
+
+- name: Debug OpenShift client version
+  ansible.builtin.debug:
+    msg:
+      - "{{ installed_oc_version }}"
+      - "{{ openshift_version }}"
+
+# - name: Set update flag if OpenShift client is incorrect
+#   ansible.builtin.set_fact:
+#     update_oc_mirror: true
+#   when: >-
+#     oc_version.rc == 0 and
+#     openshift_version == installed_oc_version
+
+- name: Remove oc-mirror binary if OpenShift client is incorrect
+  when: >-
+    oc_version.rc == 0 and
+    openshift_version != installed_oc_version
+  ansible.builtin.file:
+    path: "{{ oc_mirror_workdir }}/{{ item }}"
+    state: absent
+  with_items:
+    - oc-mirror
+    - oc
+    - kubectl
+  register: oc_removed
+
+- name: Download and install OpenShift binaries
+  when: >-
+    oc_version.rc != 0 or
+    openshift_version != installed_oc_version
+  block:
+    - name: Download OpenShift client archives
+      ansible.builtin.uri:
+        url: https://mirror.openshift.com/pub/openshift-v4/clients/ocp/{{ openshift_version }}/{{ item }}.tar.gz
+        dest: /var/tmp/
+      loop:
+        - oc-mirror
+        - openshift-client-linux
+    - name: Extract binaries
+      ansible.builtin.unarchive:
+        src: /var/tmp/{{ item }}.tar.gz
+        dest: "{{ oc_mirror_workdir }}/"
+        remote_src: true
+        mode: "0755"
+        exclude:
+          - README.md
+      loop:
+        - oc-mirror
+        - openshift-client-linux
+    - name: Cleanup the tarballs
+      ansible.builtin.file:
+        path: /var/tmp/{{ item }}.tar.gz
+        state: absent
+      loop:
+        - oc-mirror
+        - openshift-client-linux
+
+- name: Download the mirror-registry binary
+  ansible.builtin.get_url:
+    url: "{{ mirror_registry_url }}"
+    dest: "{{ oc_mirror_workdir }}/mirror-registry.tar.gz"
+    mode: "0644"

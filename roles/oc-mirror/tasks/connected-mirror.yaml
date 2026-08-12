@@ -1,0 +1,75 @@
+---
+- name: Create oc-mirror workspace
+  become: true
+  ansible.builtin.file:
+    path: "{{ oc_mirror_workdir }}"
+    state: directory
+    mode: "0755"
+    owner: "{{ ansible_user | default(omit) }}"
+    group: "{{ ansible_user | default(omit) }}"
+
+- name: Install OpenShift binaries
+  ansible.builtin.include_tasks:
+    file: install-oc-binaries.yaml
+
+- name: Copy ImageSetConfiguration
+  ansible.builtin.template:
+    src: ImageSetConfiguration.yaml.j2
+    dest: "{{ oc_mirror_workdir }}/ImageSetConfiguration.yaml"
+    mode: "0644"
+  register: mirror_config
+
+- name: Create Red Hat pull secret
+  ansible.builtin.copy:
+    dest: "{{ oc_mirror_workdir }}/redhat-auth.json"
+    content: "{{ redhat_pull_secret }}"
+    mode: "0600"
+
+- name: Clean up previous oc-mirror workspace and archive
+  when: mirror_config.changed or (force_oc_mirror | default(false) | bool)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ oc_mirror_workdir }}/working-dir"
+    - "{{ oc_mirror_archive_path }}"
+
+- name: Run oc-mirror - Mirror to Disk
+  when: mirror_config.changed or (force_oc_mirror | default(false) | bool)
+  ansible.builtin.command:
+    chdir: "{{ oc_mirror_workdir }}"
+    argv:
+      - ./oc-mirror
+      - --v2
+      - --config
+      - ImageSetConfiguration.yaml
+      - --authfile
+      - redhat-auth.json
+      - file://{{ oc_mirror_workdir }}
+  register: mirror_task
+  async: 7200
+  poll: 60
+  retries: 10
+  delay: 10
+  changed_when: mirror_task.rc == 0
+  until: mirror_task is not failed
+
+- name: Download cincinatti update graph-data for disconnected clusters
+  ansible.builtin.get_url:
+    url: https://api.openshift.com/api/upgrades_info/graph-data
+    dest: "{{ oc_mirror_workdir }}/cincinnati-graph-data.tar.gz"
+    mode: "0644"
+
+- name: Create a tarball for transfer
+  when: mirror_config.changed or (force_oc_mirror | default(false) | bool)
+  community.general.archive:
+    path:
+      - "{{ oc_mirror_workdir }}"
+    exclude_path:
+      - "{{ oc_mirror_workdir }}/working-dir"
+      - "{{ oc_mirror_workdir }}/redhat-auth.json"
+    mode: "0664"
+    format: tar
+    dest: "{{ oc_mirror_archive_path }}"
+  async: 7200
+  poll: 60

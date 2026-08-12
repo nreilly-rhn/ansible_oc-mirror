@@ -1,0 +1,15 @@
+---
+######################################################
+# ansible-playbook playbooks/openshift-postinstall.yaml \
+#   -i inventory.yaml \
+#   -l registry-int.lab.naramajac.xyz \
+#   -e @vault/quay_secrets.yaml \
+#   --vault-password-file /home/nreilly/tmp/.vault/.vault_password
+######################################################
+- name: OpenShift post-install
+  hosts: openshift_agent_iso
+  tasks:
+    - name: Run OpenShift post-install tasks
+      ansible.builtin.include_role:
+        name: "../roles/openshift-agent-iso"
+        tasks_from: post-install

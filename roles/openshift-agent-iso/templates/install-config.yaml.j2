@@ -1,0 +1,63 @@
+apiVersion: v1
+baseDomain: {{ openshift_base_domain }}
+metadata:
+  name: {{ openshift_cluster_name }}
+compute:
+  - name: worker
+    architecture: amd64
+    hyperthreading: Enabled
+    replicas: {{ openshift_agent_topology.compute_replicas }}
+controlPlane:
+  name: master
+  architecture: amd64
+  hyperthreading: Enabled
+  replicas: {{ openshift_agent_topology.control_plane_replicas }}
+networking:
+  networkType: {{ openshift_network_type }}
+  # Single node-fabric CIDR from host addresses with role: node
+  # (see tasks/derive-machine-network.yaml). Additional fabrics such as
+  # storage must not appear here.
+  machineNetwork:
+    - cidr: {{ openshift_node_network_cidr }}
+  clusterNetwork:
+{% for net in openshift_cluster_network %}
+    - cidr: {{ net.cidr }}
+      hostPrefix: {{ net.hostPrefix }}
+{% endfor %}
+  serviceNetwork:
+{% for cidr in openshift_service_network %}
+    - {{ cidr }}
+{% endfor %}
+platform:
+{% if openshift_agent_topology.platform == 'none' %}
+  none: {}
+{% elif openshift_agent_topology.platform == 'baremetal' %}
+  baremetal:
+    apiVIPs:
+{% for vip in openshift_api_vips %}
+      - {{ vip }}
+{% endfor %}
+    ingressVIPs:
+{% for vip in openshift_ingress_vips %}
+      - {{ vip }}
+{% endfor %}
+{% endif %}
+fips: {{ openshift_fips | bool | lower }}
+{# pullSecret must be a YAML string containing JSON (double quotes).
+   If Ansible coerced the JSON to a dict, to_json restores valid JSON. #}
+{% if openshift_pull_secret is mapping %}
+pullSecret: '{{ openshift_pull_secret | to_json }}'
+{% else %}
+pullSecret: {{ openshift_pull_secret | trim | to_json }}
+{% endif %}
+sshKey: {{ openshift_ssh_key | trim | to_json }}
+imageContentSources:
+{% for entry in openshift_image_digest_sources %}
+  - source: {{ entry.source }}
+    mirrors:
+{% for mirror in entry.mirrors %}
+      - {{ mirror }}
+{% endfor %}
+{% endfor %}
+additionalTrustBundle: |
+{{ openshift_additional_trust_bundle | trim | replace('\\n', '\n') | indent(2, first=True) }}

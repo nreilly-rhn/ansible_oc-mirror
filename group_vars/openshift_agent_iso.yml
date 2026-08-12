@@ -1,0 +1,263 @@
+---
+# Example Agent ISO inputs. Override per cluster as needed.
+openshift_agent_iso_workdir: /opt/openshift-agent-iso
+# oc-mirror v2 path (see IDMS: .../openshift/release-images)
+openshift_release_image: >-
+  {{ openshift_mirror_registry }}/openshift/release-images:{{
+    openshift_version }}-x86_64
+
+# Prefer oc from the oc-mirror workspace when present.
+openshift_oc_bin: /opt/oc-mirror/oc
+
+# Topology is auto-detected from openshift_hosts count (1=sno, 3=compact, 5+=ha).
+openshift_cluster_name: sno
+openshift_base_domain: lab.naramajac.xyz
+
+# Required: set via -e or vault (also accepts redhat_pull_secret).
+# openshift_pull_secret: "{{ redhat_pull_secret }}"
+# openshift_ssh_key: "ssh-ed25519 AAAA... user@host"
+
+# machineNetwork is derived from host ipv4/ipv4_addresses entries with
+# role: node (see roles/openshift-agent-iso/tasks/derive-machine-network.yaml).
+# Do not list additional fabrics (e.g. storage) here.
+# openshift_machine_network_from_hosts: true
+
+# baremetal VIPs (required for compact / ha; ignored for sno)
+# Must sit on the node network (role: node).
+openshift_api_vips:
+  - 172.16.1.240
+openshift_ingress_vips:
+  - 172.16.1.241
+
+openshift_ssh_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICtP9TMnMae1URU2VWHupD/k1h4cdtJFQ5TwYkgbhACL"
+
+# Disconnected mirror (install-config imageDigestSources + trust bundle).
+openshift_mirror_registry: registry-int.lab.naramajac.xyz:8443
+openshift_oc_mirror_workdir: /opt/oc-mirror
+
+
+# ---------------------------------------------------------------------------
+# SNO example — Simple networking:
+#   eno1 → 172.16.1.0/23   (gw 1.254, dns 0.254)
+# ---------------------------------------------------------------------------
+openshift_hosts_sno: &openshift_hosts_sno
+  - hostname: sno
+    role: master
+    root_device_name: /dev/vda
+    interfaces:
+      - name: eth0
+        mac_address: "52:54:01:00:00:10"  # 172.16.0.228
+      - name: eth1
+        mac_address: "52:54:01:00:00:11"  # 172.16.0.229
+    network_config:
+      ipv4:
+        interface: bond0
+        address: 172.16.0.230
+        prefix_length: 23
+        role: node
+        ports:
+          - eth0
+          - eth1
+      bonds:
+        - name: bond0
+          mode: balance-xor
+          mac_address: "52:54:00:00:00:10"
+          ports:
+            - eth0
+            - eth1
+      dns_resolver:
+        - 172.16.0.254
+      routes:
+        - destination: 0.0.0.0/0
+          next_hop_address: 172.16.1.254
+
+# ---------------------------------------------------------------------------
+# Compact example — complex networking per host:
+#   4 ethernet NICs, 2 bonds, VLAN 100 on bond0
+#   bond0.100 → 172.16.1.0/24   (gw .254, dns .253)
+#   bond1     → 10.254.224.0/24 (gw .254, dns .253)
+#   MAC prefix: 52:54:01
+# ---------------------------------------------------------------------------
+openshift_hosts_compact: &openshift_hosts_compact
+  - hostname: master-0.lab.naramajac.xyz
+    role: master
+    root_device_name: /dev/sda
+    interfaces:
+      - name: eno1
+        mac_address: "52:54:01:00:00:11"
+      - name: eno2
+        mac_address: "52:54:01:00:00:12"
+      - name: eno3
+        mac_address: "52:54:01:00:00:13"
+      - name: eno4
+        mac_address: "52:54:01:00:00:14"
+    network_config:
+      ipv4_addresses:
+        - interface: bond0.100
+          address: 172.16.1.226
+          prefix_length: 23
+          role: node
+        - interface: bond1
+          address: 10.254.224.226
+          prefix_length: 24
+          role: storage
+      bonds:
+        - name: bond0
+          mode: active-backup
+          ports:
+            - eno1
+            - eno2
+          primary: eno1
+          miimon: "100"
+        - name: bond1
+          mode: 802.3ad
+          ports:
+            - eno3
+            - eno4
+          miimon: "100"
+      vlans:
+        - name: bond0.100
+          id: 100
+          base_iface: bond0
+      dns_resolver:
+        - 172.16.1.253
+        - 10.254.224.253
+      # Dual default routes need separate tables + source-based route-rules
+      # so replies egress the interface that owns the source IP.
+      routes:
+        - destination: "0.0.0.0/0"
+          next_hop_address: 172.16.1.254
+          next_hop_interface: bond0.100
+          table_id: 100
+        - destination: "0.0.0.0/0"
+          next_hop_address: 10.254.224.254
+          next_hop_interface: bond1
+          table_id: 101
+      route_rules:
+        - ip_from: 172.16.1.226/32
+          route_table: 100
+          priority: 1000
+        - ip_from: 10.254.224.226/32
+          route_table: 101
+          priority: 1001
+  - hostname: master-1.lab.naramajac.xyz
+    role: master
+    root_device_name: /dev/sda
+    interfaces:
+      - name: eno1
+        mac_address: "52:54:01:00:00:21"
+      - name: eno2
+        mac_address: "52:54:01:00:00:22"
+      - name: eno3
+        mac_address: "52:54:01:00:00:23"
+      - name: eno4
+        mac_address: "52:54:01:00:00:24"
+    network_config:
+      ipv4_addresses:
+        - interface: bond0.100
+          address: 172.16.1.227
+          prefix_length: 23
+          role: node
+        - interface: bond1
+          address: 10.254.224.227
+          prefix_length: 24
+          role: storage
+      bonds:
+        - name: bond0
+          mode: active-backup
+          ports:
+            - eno1
+            - eno2
+          primary: eno1
+          miimon: "100"
+        - name: bond1
+          mode: 802.3ad
+          ports:
+            - eno3
+            - eno4
+          miimon: "100"
+      vlans:
+        - name: bond0.100
+          id: 100
+          base_iface: bond0
+      dns_resolver:
+        - 172.16.1.253
+        - 10.254.224.253
+      routes:
+        - destination: "0.0.0.0/0"
+          next_hop_address: 172.16.1.254
+          next_hop_interface: bond0.100
+          table_id: 100
+        - destination: "0.0.0.0/0"
+          next_hop_address: 10.254.224.254
+          next_hop_interface: bond1
+          table_id: 101
+      route_rules:
+        - ip_from: 172.16.1.227/32
+          route_table: 100
+          priority: 1000
+        - ip_from: 10.254.224.227/32
+          route_table: 101
+          priority: 1001
+  - hostname: master-2.lab.naramajac.xyz
+    role: master
+    root_device_name: /dev/sda
+    interfaces:
+      - name: eno1
+        mac_address: "52:54:01:00:00:31"
+      - name: eno2
+        mac_address: "52:54:01:00:00:32"
+      - name: eno3
+        mac_address: "52:54:01:00:00:33"
+      - name: eno4
+        mac_address: "52:54:01:00:00:34"
+    network_config:
+      ipv4_addresses:
+        - interface: bond0.100
+          address: 172.16.1.228
+          prefix_length: 23
+          role: node
+        - interface: bond1
+          address: 10.254.224.228
+          prefix_length: 24
+          role: storage
+      bonds:
+        - name: bond0
+          mode: active-backup
+          ports:
+            - eno1
+            - eno2
+          primary: eno1
+          miimon: "100"
+        - name: bond1
+          mode: 802.3ad
+          ports:
+            - eno3
+            - eno4
+          miimon: "100"
+      vlans:
+        - name: bond0.100
+          id: 100
+          base_iface: bond0
+      dns_resolver:
+        - 172.16.1.253
+        - 10.254.224.253
+      routes:
+        - destination: "0.0.0.0/0"
+          next_hop_address: 172.16.1.254
+          next_hop_interface: bond0.100
+          table_id: 100
+        - destination: "10.254.224.0/24"
+          next_hop_address: 10.254.224.254
+          next_hop_interface: bond1
+          table_id: 101
+      route_rules:
+        - ip_from: 172.16.1.228/32
+          route_table: 100
+          priority: 1000
+        - ip_from: 10.254.224.228/32
+          route_table: 101
+          priority: 1001
+
+openshift_hosts:
+  *openshift_hosts_sno

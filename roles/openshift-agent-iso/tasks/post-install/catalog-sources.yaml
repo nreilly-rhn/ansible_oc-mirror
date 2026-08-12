@@ -1,0 +1,57 @@
+---
+- name: Disable default operatorhub catalog sources
+  kubernetes.core.k8s_json_patch:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    kind: OperatorHub
+    name: cluster
+    patch:
+      - op: add
+        path: /spec/disableAllDefaultSources
+        value: true
+
+- name: Set catalog source YAML path
+  ansible.builtin.set_fact:
+    openshift_rh_operator_catalog_source_path: >-
+      {{ oc_mirror_workdir }}/working-dir/cluster-resources/cs-redhat-operator-index-v{{
+        openshift_version.split('.')[0:2] | join('-') }}.yaml
+
+- name: Read YAML file
+  ansible.builtin.slurp:
+    src: "{{ openshift_rh_operator_catalog_source_path }}"
+  register: rh_operator_catalog_source
+
+- name: Set fact for catalog source YAML
+  ansible.builtin.set_fact:
+    rh_operator_catalog_source_yaml: "{{ rh_operator_catalog_source.content | b64decode | from_yaml }}"
+
+- name: Fix catalog source YAML for disconnected environment
+  ansible.utils.update_fact:
+    updates:
+      - path: "rh_operator_catalog_source_yaml.metadata.name"
+        value: "redhat-operators"
+  register: rh_operator_catalog_source_yaml_fixed
+
+- name: Save updates to disk
+  ansible.builtin.copy:
+    dest: "{{ openshift_rh_operator_catalog_source_path }}"
+    content: "{{ rh_operator_catalog_source_yaml_fixed.rh_operator_catalog_source_yaml | to_nice_yaml }}"
+    mode: "0644"
+
+- name: Find catalog source YAML files in cluster-resources directory
+  ansible.builtin.find:
+    paths: "{{ oc_mirror_workdir }}/working-dir/cluster-resources"
+    patterns: "*.yaml"
+    excludes:
+      - "updateService.yaml"
+    file_type: file
+  register: openshift_catalog_source_files
+
+- name: Apply catalog source YAML to cluster
+  kubernetes.core.k8s:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    state: present
+    src: "{{ item.path }}"
+  loop: "{{ openshift_catalog_source_files.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+...

@@ -1,0 +1,9 @@
+---
+collections:
+  - name: ansible.utils
+  - name: ansible.posix
+  - name: community.general
+  - name: community.crypto
+  - name: kubernetes.core
+  - name: containers.podman
+...

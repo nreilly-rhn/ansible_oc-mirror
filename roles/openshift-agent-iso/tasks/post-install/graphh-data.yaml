@@ -1,0 +1,33 @@
+---
+- name: Create podman build_dir for cincinnati graph-data container image
+  ansible.builtin.file:
+    path: "{{ openshift_agent_iso_workdir }}/cincinnati-graph-data"
+    state: directory
+    mode: "0755"
+
+- name: Copy Graph Data Containerfile to build_dir
+  ansible.builtin.template:
+    src: graph-data-containerfile.j2
+    dest: "{{ openshift_agent_iso_workdir }}/cincinnati-graph-data/Containerfile"
+    mode: "0644"
+
+- name: Copy cincinnati graph-data to build_dir
+  ansible.builtin.copy:
+    src: "{{ oc_mirror_workdir }}/cincinnati-graph-data.tar.gz"
+    dest: "{{ openshift_agent_iso_workdir }}/cincinnati-graph-data/cincinnati-graph-data.tar.gz"
+    mode: "0644"
+    remote_src: true
+
+- name: Build cincinnati graph-data container image
+  containers.podman.podman_image:
+    name: cincinnati-graph-data
+    state: build
+    tag: latest
+    authfile: "{{ ansible_facts.user_dir }}/.dockercfg"
+    validate_certs: false
+    push: true
+    push_args:
+      dest: "{{ openshift_mirror_registry }}/openshift/graph-image:latest"
+    build:
+      file: "{{ openshift_agent_iso_workdir }}/cincinnati-graph-data/Containerfile"
+...

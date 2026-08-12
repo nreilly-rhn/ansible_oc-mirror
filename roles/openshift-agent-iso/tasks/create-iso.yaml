@@ -1,0 +1,178 @@
+---
+- name: Validate required cluster variables
+  ansible.builtin.assert:
+    that:
+      - openshift_cluster_name | length > 0
+      - openshift_base_domain | length > 0
+      - openshift_ssh_key | length > 0
+      - openshift_pull_secret | length > 0
+      - openshift_hosts | length > 0
+    fail_msg: >-
+      Set openshift_cluster_name, openshift_base_domain, openshift_ssh_key,
+      openshift_pull_secret (or redhat_pull_secret), and openshift_hosts.
+      machineNetwork is derived from host address role: node (see
+      derive-machine-network.yaml).
+
+- name: Validate openshift_hosts count maps to a supported topology
+  ansible.builtin.assert:
+    that:
+      - (openshift_hosts | length) in [1, 3]
+        or (openshift_hosts | length) >= 5
+    fail_msg: >-
+      Invalid openshift_hosts count: {{ openshift_hosts | length }}.
+      Supported layouts are: 1 host (SNO), 3 hosts (compact), or 5+ hosts (HA
+      with 3 masters and at least 2 workers). 2 and 4 hosts are not valid
+      OpenShift topologies for this role.
+
+- name: Detect cluster topology from openshift_hosts count
+  ansible.builtin.set_fact:
+    openshift_topology: >-
+      {{
+        'sno' if (openshift_hosts | length) == 1 else
+        (
+          'compact' if (openshift_hosts | length) == 3 else
+          'ha'
+        )
+      }}
+    openshift_host_master_count: >-
+      {{
+        openshift_hosts
+        | selectattr('role', 'equalto', 'master')
+        | list
+        | length
+      }}
+    openshift_host_worker_count: >-
+      {{
+        openshift_hosts
+        | selectattr('role', 'equalto', 'worker')
+        | list
+        | length
+      }}
+
+- name: Resolve topology settings
+  ansible.builtin.set_fact:
+    openshift_agent_topology: >-
+      {{
+        openshift_topology_map[openshift_topology]
+        | combine(
+            {'compute_replicas': (openshift_host_worker_count | int)}
+            if openshift_topology == 'ha'
+            else {}
+          )
+      }}
+
+- name: Show detected topology
+  ansible.builtin.debug:
+    msg: >-
+      Detected topology '{{ openshift_topology }}' from
+      {{ openshift_hosts | length }} host(s)
+      ({{ openshift_host_master_count }} master,
+      {{ openshift_host_worker_count }} worker).
+
+- name: Validate host roles match detected topology
+  ansible.builtin.assert:
+    that:
+      - (openshift_host_master_count | int)
+        == (openshift_agent_topology.control_plane_replicas | int)
+      - (openshift_host_worker_count | int)
+        == (openshift_agent_topology.compute_replicas | int)
+      - (
+          (openshift_host_master_count | int)
+          + (openshift_host_worker_count | int)
+        ) == (openshift_hosts | length)
+    fail_msg: >-
+      Topology '{{ openshift_topology }}' (from {{ openshift_hosts | length }}
+      host(s)) expects
+      {{ openshift_agent_topology.control_plane_replicas }} master and
+      {{ openshift_agent_topology.compute_replicas }} worker role(s), but found
+      {{ openshift_host_master_count }} master and
+      {{ openshift_host_worker_count }} worker.
+      Every openshift_hosts entry must use role 'master' or 'worker'.
+
+- name: Validate baremetal VIPs when required
+  ansible.builtin.assert:
+    that:
+      - openshift_api_vips | length > 0
+      - openshift_ingress_vips | length > 0
+    fail_msg: >-
+      Topology '{{ openshift_topology }}' uses platform baremetal and requires
+      openshift_api_vips and openshift_ingress_vips.
+  when: openshift_agent_topology.platform == 'baremetal'
+
+- name: Validate each host has hostname, role, and interfaces
+  ansible.builtin.assert:
+    that:
+      - item.hostname is defined and (item.hostname | length > 0)
+      - item.role is defined and (item.role | length > 0)
+      - item.interfaces is defined and (item.interfaces | length > 0)
+    fail_msg: >-
+      Each openshift_hosts entry needs hostname, role, and at least one
+      interface (name + mac_address). Problem host: {{ item | default({}) }}.
+  loop: "{{ openshift_hosts }}"
+  loop_control:
+    label: "{{ item.hostname | default('unknown') }}"
+
+- name: Derive machineNetwork from host address roles
+  ansible.builtin.include_tasks:
+    file: create-iso/derive-machine-network.yaml
+
+- name: Create Agent ISO workspace
+  become: true
+  ansible.builtin.file:
+    path: "{{ openshift_agent_iso_workdir }}"
+    state: directory
+    mode: "0755"
+    owner: "{{ ansible_user | default(omit) }}"
+    group: "{{ ansible_user | default(omit) }}"
+
+- name: Login to disconnected mirror registry
+  ansible.builtin.command:
+    argv:
+      - podman
+      - login
+      - --username
+      - "{{ quay_user }}"
+      - --password
+      - "{{ quay_password }}"
+      - --authfile
+      - "{{ ansible_facts.user_dir }}/.dockercfg"
+      - --tls-verify=false
+      - "{{ openshift_mirror_registry }}"
+  no_log: true
+  changed_when: true
+
+# install-config pullSecret must only authenticate to the disconnected mirror,
+# and must be a single-line JSON string.
+- name: Compact mirror-only pull secret for install-config
+  ansible.builtin.command:
+    argv:
+      - jq
+      - -c
+      - .
+      - "{{ ansible_facts.user_dir }}/.dockercfg"
+  register: openshift_mirror_pull_secret_compact
+  changed_when: false
+  no_log: true
+
+- name: Use mirror-only pull secret for install-config rendering
+  ansible.builtin.set_fact:
+    # Keep as a JSON string; avoid Jinja/native coercion to a Python dict
+    # (dict repr uses single quotes and breaks install-config YAML).
+    openshift_pull_secret: "{{ openshift_mirror_pull_secret_compact.stdout | string }}"
+  no_log: true
+
+- name: Prepare disconnected mirror settings for install-config
+  ansible.builtin.include_tasks:
+    file: create-iso/prepare-mirror-config.yaml
+
+- name: Extract openshift-install from mirrored release image
+  ansible.builtin.include_tasks:
+    file: create-iso/extract-installer.yaml
+
+- name: Render install-config and agent-config
+  ansible.builtin.include_tasks:
+    file: create-iso/render-configs.yaml
+
+- name: Generate Agent-based Installer ISO
+  ansible.builtin.include_tasks:
+    file: create-iso/create-image.yaml

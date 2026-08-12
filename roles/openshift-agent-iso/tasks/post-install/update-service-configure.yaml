@@ -1,0 +1,103 @@
+---
+- name: Parse mirror registry host and TLS port
+  when: openshift_additional_trust_bundle | default('') | length == 0
+  ansible.builtin.set_fact:
+    openshift_mirror_registry_host: "{{ openshift_mirror_registry.split(':')[0] }}"
+    openshift_mirror_registry_port: >-
+      {{ openshift_mirror_registry.split(':')[1] | default('8443') | int }}
+
+- name: Fetch mirror registry TLS certificate from port
+  when: openshift_additional_trust_bundle | default('') | length == 0
+  community.crypto.get_certificate:
+    host: "{{ openshift_mirror_registry_host }}"
+    port: "{{ openshift_mirror_registry_port }}"
+    get_certificate_chain: true
+  delegate_to: localhost
+  become: false
+  register: openshift_mirror_tls
+
+- name: Display mirror registry TLS certificate
+  vars:
+    _newline: "\n"
+  ansible.builtin.debug:
+    msg: "{{ openshift_mirror_tls.unverified_chain | map('trim') | list | join(_newline) }}"
+
+- name: Template mirror registry TLS certificate ConfigMap for the update service
+  ansible.builtin.template:
+    src: mirror_tls_configmap.yaml.j2
+    dest: "{{ openshift_agent_iso_workdir }}/mirror_tls_configmap.yaml"
+    mode: "0644"
+  register: mirror_tls_configmap
+
+- name: Apply mirror registry TLS certificate ConfigMap for the update service
+  kubernetes.core.k8s:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    state: present
+    src: "{{ mirror_tls_configmap.dest }}"
+
+- name: Patch Image Config to use the mirror registry TLS certificate ConfigMap for the update service
+  kubernetes.core.k8s_json_patch:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    api_version: config.openshift.io/v1
+    kind: Image
+    name: cluster
+    patch:
+      - op: add
+        path: /spec/additionalTrustedCA
+        value:
+          name: image-registry-ca
+
+- name: Create the Openshift Update Service
+  kubernetes.core.k8s:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    state: present
+    definition:
+      apiVersion: updateservice.operator.openshift.io/v1
+      kind: UpdateService
+      metadata:
+        name: openshift-update-service
+        namespace: openshift-update-service
+      spec:
+        replicas: 1
+        releases: "{{ openshift_mirror_registry }}/openshift/release-images"
+        graphDataImage: "{{ openshift_mirror_registry }}/openshift/graph-image:latest"
+  register: openshift_update_service
+
+- name: Wait for Update Service to report policyEngineURI
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    api_version: updateservice.operator.openshift.io/v1
+    kind: UpdateService
+    name: openshift-update-service
+    namespace: openshift-update-service
+  register: update_service_info
+  failed_when: false
+  until: >-
+    update_service_info.resources is defined
+    and (update_service_info.resources | length) > 0
+    and update_service_info.resources[0].status.policyEngineURI is defined
+    and (update_service_info.resources[0].status.policyEngineURI | length) > 0
+  retries: 60
+  delay: 15
+
+- name: Assert Update Service has policyEngineURI
+  ansible.builtin.assert:
+    that:
+      - update_service_info.resources is defined
+      - (update_service_info.resources | length) > 0
+      - update_service_info.resources[0].status.policyEngineURI is defined
+      - (update_service_info.resources[0].status.policyEngineURI | length) > 0
+    fail_msg: >-
+      UpdateService did not report status.policyEngineURI in time.
+
+- name: Patch the Cluster Version Operator to use the Cincinnati Update Service
+  kubernetes.core.k8s_json_patch:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    api_version: config.openshift.io/v1
+    kind: ClusterVersion
+    name: version
+    patch:
+      - op: replace
+        path: /spec/upstream
+        value: "{{ update_service_info.resources[0].status.policyEngineURI }}/api/upgrades_info/v1/graph"
+...

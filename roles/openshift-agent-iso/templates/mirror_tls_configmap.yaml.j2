@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: image-registry-ca
+  namespace: openshift-config
+data:
+    updateservice-registry: |
+{{ openshift_mirror_tls.unverified_chain | map('trim') | list | join('\n')  | indent(6, first=True)}}
+    {{ openshift_mirror_registry_host }}..{{ openshift_mirror_registry_port }}: |
+{{ openshift_mirror_tls.unverified_chain | map('trim') | list | join('\n')  | indent(6, first=True)}}

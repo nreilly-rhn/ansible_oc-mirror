@@ -1,0 +1,45 @@
+---
+- name: Set Openshift Registry storage to emptyDir for disconnected environments
+  kubernetes.core.k8s_json_patch:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    api: imageregistry.operator.openshift.io/v1
+    kind: Config
+    name: cluster
+    patch:
+      - op: add
+        path: /spec/storage/emptyDir
+        value: {}
+- name: Set Openshift Registry Operator to Managed for disconnected environments
+  kubernetes.core.k8s_json_patch:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    api: imageregistry.operator.openshift.io/v1
+    kind: Config
+    name: cluster
+    patch:
+      - op: add
+        path: /spec/managementState
+        value: Managed
+
+# k8s_info can fail transiently while the API is restarting. failed_when: false
+# keeps those attempts in the until loop; guard .resources so a failed register
+# evaluates to false instead of raising "'dict object' has no attribute 'resources'".
+- name: Wait for clusterOperators to be ready
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ openshift_kubeconfig }}"
+    api_version: config.openshift.io/v1
+    kind: ClusterOperator
+  register: operators
+  failed_when: false
+  until: >-
+    operators.resources is defined
+    and (operators.resources | length) > 0
+    and (
+      operators.resources
+      | json_query('[?status.conditions[?type==`Available` && status==`True`] &&
+      status.conditions[?type==`Progressing` && status==`False`] &&
+      status.conditions[?type==`Degraded` && status==`False`]]')
+      | length
+    ) == (operators.resources | length)
+  retries: 90
+  delay: 30
+...

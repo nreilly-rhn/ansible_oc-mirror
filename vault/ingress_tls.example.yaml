@@ -1,0 +1,16 @@
+# Example vault keys for optional custom default ingress TLS.
+# Copy into vault/quay_secrets.yaml (or another -e @file) and encrypt with
+# ansible-vault. Do not commit plaintext PEMs.
+#
+# openshift_ingress_tls_cert: |
+#   -----BEGIN CERTIFICATE-----
+#   <leaf + intermediates; leaf first>
+#   -----END CERTIFICATE-----
+# openshift_ingress_tls_key: |
+#   -----BEGIN PRIVATE KEY-----
+#   <unencrypted private key>
+#   -----END PRIVATE KEY-----
+# openshift_ingress_ca_cert: |
+#   -----BEGIN CERTIFICATE-----
+#   <signing / root CA for Proxy trustedCA>
+#   -----END CERTIFICATE-----

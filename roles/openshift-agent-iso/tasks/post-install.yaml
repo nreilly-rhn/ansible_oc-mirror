@@ -1,0 +1,34 @@
+---
+- name: Install required packages
+  become: true
+  ansible.builtin.package:
+    name:
+      - python3-pip
+
+- name: Install required Python packages
+  ansible.builtin.pip:
+    name:
+      - kubernetes
+
+- name: Set fact for kubeconfig path
+  ansible.builtin.set_fact:
+    openshift_kubeconfig: "{{ openshift_agent_iso_install_dir }}/auth/kubeconfig"
+
+- name: Include task file to setup Openshift internal Registry
+  ansible.builtin.include_tasks: post-install/image-registry.yaml
+
+- name: Include task file to build and push cincinnati graph-data container image
+  ansible.builtin.include_tasks: post-install/graphh-data.yaml
+
+- name: Include task file to setup Openshift Catalog Sources
+  ansible.builtin.include_tasks: post-install/catalog-sources.yaml
+
+- name: Include task file to configure custom default ingress TLS
+  ansible.builtin.include_tasks: post-install/ingress-tls.yaml
+
+- name: Include task file to install Openshift Update Service Operator
+  ansible.builtin.include_tasks: post-install/update-service-operator.yaml
+
+- name: Include task file to configure Openshift Update Service
+  ansible.builtin.include_tasks: post-install/update-service-configure.yaml
+...

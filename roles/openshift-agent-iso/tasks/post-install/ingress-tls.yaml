@@ -1,0 +1,94 @@
+---
+# Replace the default IngressController certificate when vault PEMs are provided.
+# See: https://docs.okd.io/latest/security/certificates/replacing-default-ingress-certificate.html
+
+- name: Determine whether custom ingress TLS is configured
+  ansible.builtin.set_fact:
+    openshift_ingress_tls_configured: "{{ _ingress_tls_all }}"
+    openshift_ingress_tls_partial: "{{ _ingress_tls_any and not _ingress_tls_all }}"
+  vars:
+    _ingress_tls_cert_set: "{{ openshift_ingress_tls_cert | default('') | length > 0 }}"
+    _ingress_tls_key_set: "{{ openshift_ingress_tls_key | default('') | length > 0 }}"
+    _ingress_tls_ca_set: "{{ openshift_ingress_ca_cert | default('') | length > 0 }}"
+    _ingress_tls_any: "{{ _ingress_tls_cert_set or _ingress_tls_key_set or _ingress_tls_ca_set }}"
+    _ingress_tls_all: "{{ _ingress_tls_cert_set and _ingress_tls_key_set and _ingress_tls_ca_set }}"
+
+- name: Fail when only some ingress TLS vault variables are set
+  ansible.builtin.assert:
+    that:
+      - not (openshift_ingress_tls_partial | bool)
+    fail_msg: >-
+      Custom ingress TLS requires all three vault PEMs:
+      openshift_ingress_tls_cert, openshift_ingress_tls_key, and
+      openshift_ingress_ca_cert. Set all three or omit all three.
+    quiet: true
+
+- name: Apply custom default ingress TLS
+  when: openshift_ingress_tls_configured | bool
+  block:
+    - name: Create ingress CA ConfigMap in openshift-config
+      kubernetes.core.k8s:
+        kubeconfig: "{{ openshift_kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: "{{ openshift_ingress_ca_configmap_name }}"
+            namespace: openshift-config
+          data:
+            ca-bundle.crt: "{{ openshift_ingress_ca_cert }}"
+
+    - name: Point cluster Proxy trustedCA at ingress CA ConfigMap
+      kubernetes.core.k8s:
+        kubeconfig: "{{ openshift_kubeconfig }}"
+        state: present
+        merge_type:
+          - merge
+        definition:
+          apiVersion: config.openshift.io/v1
+          kind: Proxy
+          metadata:
+            name: cluster
+          spec:
+            trustedCA:
+              name: "{{ openshift_ingress_ca_configmap_name }}"
+
+    - name: Create default ingress TLS secret
+      kubernetes.core.k8s:
+        kubeconfig: "{{ openshift_kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ openshift_ingress_tls_secret_name }}"
+            namespace: openshift-ingress
+          type: kubernetes.io/tls
+          stringData:
+            tls.crt: "{{ openshift_ingress_tls_cert }}"
+            tls.key: "{{ openshift_ingress_tls_key }}"
+
+    - name: Point default IngressController at custom certificate secret
+      kubernetes.core.k8s:
+        kubeconfig: "{{ openshift_kubeconfig }}"
+        state: present
+        merge_type:
+          - merge
+        definition:
+          apiVersion: operator.openshift.io/v1
+          kind: IngressController
+          metadata:
+            name: default
+            namespace: openshift-ingress-operator
+          spec:
+            defaultCertificate:
+              name: "{{ openshift_ingress_tls_secret_name }}"
+
+    - name: Display custom ingress TLS applied
+      ansible.builtin.debug:
+        msg: >-
+          Default ingress certificate set to secret
+          {{ openshift_ingress_tls_secret_name }} (openshift-ingress);
+          Proxy trustedCA set to ConfigMap
+          {{ openshift_ingress_ca_configmap_name }} (openshift-config).
