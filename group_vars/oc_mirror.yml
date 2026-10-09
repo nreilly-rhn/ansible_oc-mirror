@@ -53,5 +53,14 @@ mirror_set_config:
             - name: stable
               minVersion: 1.5.1
               maxVersion: 1.5.1
+    - name: registry.redhat.io/redhat/certified-operator-index:v4.22
+      full: false
+      packages:
+        - name: hspc-operator
+          channels:
+            - name: stable
+              minVersion: v1.18.3
+              maxVersion: v1.18.3
   additionalImages:
     - name: registry.redhat.io/ubi9/ubi:latest
+    - name: registry.redhat.io/rhel9/support-tools:latest
