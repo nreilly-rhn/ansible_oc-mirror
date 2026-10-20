@@ -41,31 +41,55 @@ Requires a completed disconnected mirror (Quay content + oc-mirror IDMS under `/
 ## Quick start
 
 Secrets are expected from vault (for example `-e @vault/quay_secrets.yaml`). See each role README for required variables.
+ - Install collections from `requirements.yaml` before first use:
+ ```bash
+ ansible-galaxy collection install -r requirements.yaml
+ ```
+ - Download your Red Hat Openshift pull secret from https://console.redhat.com/openshift/downloads#tool-pull-secret
+ - Create a vault password file:
+```bash
+echo ${VAULT_PASSWORD} > /path/to/.vault_password
+```
+
+ - Encrypt the pull secret:
+ ```bash
+ansible-vault encrypt_string --vault-password-file /path/to/.vault_password --name redhat_pull_secret $(cat /tmp/pull_secret.json)$ --output vault/red_hat_secrets.yaml
+ ```
+
+
+ - Encrypt the Quay credentials:
+ ```bash
+ansible-vault encrypt_string --vault-password-file /path/to/.vault_password --name quay_user ${QUAY_USER} --output vault/quay_secrets.yaml
+ansible-vault encrypt_string --vault-password-file /path/to/.vault_password --name quay_user ${QUAY_PASSWORD} --output vault/quay_secrets.yaml
+ ```
+
+ - Run the PlayBooks:
 
 ```bash
 # 1. Connected mirror (internet-facing host)
 ansible-playbook playbooks/oc-mirror-create-connected.yaml \
-  -i inventory.yaml \
-  -e @vault/quay_secrets.yaml \
+  --inventory inventory.yaml \
+  --extra_vars @vault/red_hat_secrets.yaml \
+  --extra_vars @vault/quay_secrets.yaml \
   --vault-password-file /path/to/.vault_password
 
 # 2. Copy /var/tmp/oc-mirror.tar from registry-ext to registry-int
 
 # 3. Disconnected mirror (internal Quay host)
 ansible-playbook playbooks/oc-mirror-create-disconnected.yaml \
-  -i inventory.yaml \
-  -e @vault/quay_secrets.yaml \
+  --inventory inventory.yaml \
+  --extra_vars @vault/red_hat_secrets.yaml \
+  --extra_vars @vault/quay_secrets.yaml \
   --vault-password-file /path/to/.vault_password
 
 # 4. Agent ISO
-ansible-playbook playbooks/openshift-agent-create-iso.yaml \
-  -i inventory.yaml \
-  -e @vault/quay_secrets.yaml \
+ansible-playbook playbooks/openshift-agent-create-iso.yaml \ \
+  --inventory inventory.yaml \
+  --extra_vars @vault/red_hat_secrets.yaml \
+  --extra_vars @vault/quay_secrets.yaml
   -e openshift_ssh_key="$(cat ~/.ssh/id_ed25519.pub)" \
   --vault-password-file /path/to/.vault_password
 ```
-
-Install collections from `requirements.yaml` before first use (`ansible-galaxy collection install -r requirements.yaml`).
 
 ## Further reading
 
