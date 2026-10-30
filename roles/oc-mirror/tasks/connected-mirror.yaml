@@ -1,4 +1,15 @@
 ---
+# Connected mirrorToDisk for the CNCF Distribution path.
+#
+# oc-mirror does not talk to the local registry on this host. Before the
+# transfer archive is packed, registry-save-image.yaml pulls registry:3
+# and writes oc_mirror_workdir/registry.tar so the disconnected host can
+# load the image without docker.io.
+#
+# The archive is rebuilt when the ImageSet changes, when force_oc_mirror
+# is set, when the transfer archive is missing, or when the registry
+# image tar is newer than the transfer archive.
+
 - name: Create oc-mirror workspace
   become: true
   ansible.builtin.file:
@@ -60,8 +71,30 @@
     dest: "{{ oc_mirror_workdir }}/cincinnati-graph-data.tar.gz"
     mode: "0644"
 
+- name: Save the CNCF Distribution registry image for transfer
+  ansible.builtin.include_tasks:
+    file: registry-save-image.yaml
+
+- name: Check the saved registry image
+  ansible.builtin.stat:
+    path: "{{ registry_image_archive }}"
+  register: registry_image_tar
+
+- name: Check the transfer archive
+  ansible.builtin.stat:
+    path: "{{ oc_mirror_archive_path }}"
+  register: registry_transfer_archive
+
 - name: Create a tarball for transfer
-  when: mirror_config.changed or (force_oc_mirror | default(false) | bool)
+  when: >-
+    mirror_config.changed
+    or (force_oc_mirror | default(false) | bool)
+    or not registry_transfer_archive.stat.exists
+    or (
+      registry_image_tar.stat.exists
+      and registry_image_tar.stat.mtime
+      > (registry_transfer_archive.stat.mtime | default(0))
+    )
   community.general.archive:
     path:
       - "{{ oc_mirror_workdir }}"

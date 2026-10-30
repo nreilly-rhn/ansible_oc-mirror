@@ -2,7 +2,8 @@
 # Shared by connected_mirror and disconnected_mirror (via parent group oc_mirror).
 oc_mirror_workdir: /opt/oc-mirror
 oc_mirror_archive_path: /var/tmp/oc-mirror.tar
-quay_workdir: /opt/quay-mirror
+registry_workdir: /opt/registry
+registry_port: 8443
 mirror_set_config:
   catalogs:
     - name: registry.redhat.io/redhat/redhat-operator-index:v4.22

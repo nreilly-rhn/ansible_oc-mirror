@@ -1,10 +1,18 @@
 # SPDX-License-Identifier: MIT-0
 ---
-# Shared workspace for connected (disk mirror) and disconnected (push to Quay).
+# Shared workspace for connected (disk mirror) and disconnected (push to registry).
 # Override in group_vars/oc_mirror.yml.
 oc_mirror_workdir: /opt/oc-mirror
 oc_mirror_archive_path: /var/tmp/oc-mirror.tar.gz
-mirror_registry_url: https://developers.redhat.com/content-gateway/file/pub/openshift-v4/clients/mirror-registry/1.3.11/mirror-registry.tar.gz
+
+# CNCF Distribution registry (Podman Quadlet). Override in group_vars as needed.
+registry_image: docker.io/library/registry:3
+registry_port: 8443
+registry_listen_port: 5000
+registry_workdir: /opt/registry
+registry_unit: registry
+registry_image_archive: "{{ oc_mirror_workdir }}/registry.tar"
+
 # ImageSetConfiguration operator catalogs / additional images.
 # Prefer overriding via group_vars/oc_mirror.yml (mirror_set_config).
 mirror_set_config:

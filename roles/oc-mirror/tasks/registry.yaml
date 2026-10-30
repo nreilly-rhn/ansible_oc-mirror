@@ -1,0 +1,378 @@
+---
+# Install the CNCF Distribution registry (Docker Official Image registry:3,
+# https://github.com/distribution/distribution) as a rootful Podman Quadlet.
+# Quadlet writes a systemd generator unit; podman generate systemd is gone
+# in Podman 5. The unit name is {{ registry_unit }}.service, from
+# /etc/containers/systemd/{{ registry_unit }}.container.
+# Boot is handled by the Quadlet [Install] section. systemctl enable does
+# not apply to generator units.
+#
+# Health: a live registry with htpasswd answers
+# https://<fqdn>:{{ registry_port }}/v2/ with 401.
+#
+# Air gap: connected-mirror.yaml saves {{ registry_image_archive }} into
+# the transfer archive. This file loads that tar when it is present,
+# otherwise it pulls {{ registry_image }}.
+#
+# Auth uses registry_user / registry_password from the vault.
+# TLS uses registry_ssl_cert / registry_ssl_key when both are set;
+# otherwise a self-signed certificate is generated for the host FQDN.
+
+- name: Install registry host packages
+  become: true
+  ansible.builtin.package:
+    name:
+      - podman
+      - httpd-tools
+      - openssl
+    state: present
+
+- name: Create oc-mirror workspace
+  become: true
+  ansible.builtin.file:
+    path: "{{ oc_mirror_workdir }}"
+    state: directory
+    mode: "0775"
+    owner: "{{ ansible_user | default(omit) }}"
+    group: "{{ ansible_user | default(omit) }}"
+
+- name: Check whether oc-mirror workspace is populated
+  ansible.builtin.stat:
+    path: "{{ oc_mirror_workdir }}/ImageSetConfiguration.yaml"
+  register: oc_mirror_workspace
+
+- name: Check for transfer archive
+  ansible.builtin.stat:
+    path: "{{ oc_mirror_archive_path }}"
+  register: oc_mirror_archive
+  when: not oc_mirror_workspace.stat.exists
+
+- name: Fail when workspace and archive are both missing
+  ansible.builtin.fail:
+    msg: >-
+      No mirror workspace at {{ oc_mirror_workdir }} and no archive at
+      {{ oc_mirror_archive_path }}.
+  when:
+    - not oc_mirror_workspace.stat.exists
+    - not oc_mirror_archive.stat.exists
+
+- name: Restore workspace from transfer archive
+  ansible.builtin.unarchive:
+    src: "{{ oc_mirror_archive_path }}"
+    dest: "{{ oc_mirror_workdir | dirname }}"
+    remote_src: true
+  when:
+    - not oc_mirror_workspace.stat.exists
+    - oc_mirror_archive.stat.exists
+
+- name: Create registry directories
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ registry_workdir }}"
+    - "{{ registry_workdir }}/certs"
+    - "{{ registry_workdir }}/auth"
+    - "{{ registry_workdir }}/data"
+    - /etc/containers/systemd
+
+- name: Validate custom TLS variables are paired
+  ansible.builtin.assert:
+    that:
+      - (registry_ssl_cert_set | bool) == (registry_ssl_key_set | bool)
+    fail_msg: >-
+      Set both registry_ssl_cert and registry_ssl_key, or omit both and a
+      self-signed certificate will be generated for {{ ansible_facts['fqdn'] }}.
+  vars:
+    registry_ssl_cert_set: "{{ registry_ssl_cert is defined and registry_ssl_cert | length > 0 }}"
+    registry_ssl_key_set: "{{ registry_ssl_key is defined and registry_ssl_key | length > 0 }}"
+
+- name: Record whether custom TLS material was provided
+  ansible.builtin.set_fact:
+    registry_tls_custom: "{{ _registry_tls_custom }}"
+  vars:
+    _registry_tls_custom: >-
+      {{
+        (registry_ssl_cert is defined and registry_ssl_cert | length > 0)
+        and (registry_ssl_key is defined and registry_ssl_key | length > 0)
+      }}
+
+- name: Copy registry TLS certificate
+  when: registry_tls_custom | bool
+  become: true
+  ansible.builtin.copy:
+    dest: "{{ registry_workdir }}/certs/domain.crt"
+    content: "{{ registry_ssl_cert }}"
+    mode: "0644"
+  register: registry_tls_cert
+
+- name: Copy registry TLS private key
+  when: registry_tls_custom | bool
+  become: true
+  ansible.builtin.copy:
+    dest: "{{ registry_workdir }}/certs/domain.key"
+    content: "{{ registry_ssl_key }}"
+    mode: "0600"
+  register: registry_tls_key
+
+- name: Generate a self-signed certificate for the registry hostname
+  when: not (registry_tls_custom | bool)
+  become: true
+  ansible.builtin.command:
+    argv:
+      - openssl
+      - req
+      - -x509
+      - -newkey
+      - rsa:4096
+      - -nodes
+      - -sha256
+      - -days
+      - "3650"
+      - -keyout
+      - "{{ registry_workdir }}/certs/domain.key"
+      - -out
+      - "{{ registry_workdir }}/certs/domain.crt"
+      - -subj
+      - "/CN={{ ansible_facts['fqdn'] }}"
+      - -addext
+      - "subjectAltName=DNS:{{ ansible_facts['fqdn'] }}"
+    creates: "{{ registry_workdir }}/certs/domain.crt"
+  register: registry_tls_generated
+
+- name: Restrict registry TLS key
+  become: true
+  ansible.builtin.file:
+    path: "{{ registry_workdir }}/certs/domain.key"
+    mode: "0600"
+
+- name: Check for a registry htpasswd file
+  become: true
+  ansible.builtin.stat:
+    path: "{{ registry_workdir }}/auth/htpasswd"
+  register: registry_htpasswd_file
+
+- name: Check registry basic-auth password
+  when: registry_htpasswd_file.stat.exists
+  become: true
+  ansible.builtin.command:
+    argv:
+      - htpasswd
+      - -bBv
+      - "{{ registry_workdir }}/auth/htpasswd"
+      - "{{ registry_user }}"
+      - "{{ registry_password }}"
+  register: registry_htpasswd_verify
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+- name: Write registry htpasswd
+  when: >-
+    (not registry_htpasswd_file.stat.exists)
+    or (registry_htpasswd_verify.rc | default(1) | int != 0)
+  become: true
+  ansible.builtin.command:
+    argv:
+      - htpasswd
+      - "{{ '-bBc' if not registry_htpasswd_file.stat.exists else '-bB' }}"
+      - "{{ registry_workdir }}/auth/htpasswd"
+      - "{{ registry_user }}"
+      - "{{ registry_password }}"
+  register: registry_htpasswd_write
+  no_log: true
+
+- name: Restrict registry htpasswd file
+  become: true
+  ansible.builtin.file:
+    path: "{{ registry_workdir }}/auth/htpasswd"
+    mode: "0640"
+
+- name: Check for a registry HTTP secret
+  become: true
+  ansible.builtin.stat:
+    path: "{{ registry_workdir }}/http-secret"
+  register: registry_http_secret_file
+
+- name: Create registry HTTP secret
+  when: not registry_http_secret_file.stat.exists
+  become: true
+  ansible.builtin.command:
+    argv:
+      - openssl
+      - rand
+      - -hex
+      - "32"
+  register: registry_http_secret_new
+  changed_when: true
+  no_log: true
+
+- name: Store registry HTTP secret
+  when: not registry_http_secret_file.stat.exists
+  become: true
+  ansible.builtin.copy:
+    dest: "{{ registry_workdir }}/http-secret"
+    content: "{{ registry_http_secret_new.stdout }}\n"
+    mode: "0600"
+  no_log: true
+
+- name: Read registry HTTP secret
+  become: true
+  ansible.builtin.slurp:
+    src: "{{ registry_workdir }}/http-secret"
+  register: registry_http_secret_slurp
+  no_log: true
+
+- name: Write registry config
+  become: true
+  ansible.builtin.copy:
+    dest: "{{ registry_workdir }}/config.yml"
+    mode: "0640"
+    content: |
+      version: 0.1
+      log:
+        level: info
+        formatter: text
+      storage:
+        filesystem:
+          rootdirectory: /var/lib/registry
+        delete:
+          enabled: true
+        cache:
+          blobdescriptor: inmemory
+      http:
+        addr: ":{{ registry_listen_port }}"
+        host: "https://{{ ansible_facts['fqdn'] }}:{{ registry_port }}"
+        secret: {{ registry_http_secret_slurp.content | b64decode | trim }}
+        relativeurls: false
+        headers:
+          X-Content-Type-Options: [nosniff]
+        tls:
+          certificate: /certs/domain.crt
+          key: /certs/domain.key
+      health:
+        storagedriver:
+          enabled: true
+          interval: 10s
+          threshold: 3
+      auth:
+        htpasswd:
+          realm: Registry Realm
+          path: /auth/htpasswd
+  register: registry_config
+  no_log: true
+
+- name: Check for a saved registry image
+  ansible.builtin.stat:
+    path: "{{ registry_image_archive }}"
+  register: registry_image_archive_stat
+
+- name: Check whether the registry image is already in root storage
+  become: true
+  containers.podman.podman_image_info:
+    name:
+      - "{{ registry_image }}"
+  register: registry_local_image
+
+- name: Load the registry image from the workspace archive
+  when:
+    - registry_image_archive_stat.stat.exists
+    - registry_local_image.images | length == 0
+  become: true
+  containers.podman.podman_load:
+    input: "{{ registry_image_archive }}"
+
+- name: Pull the CNCF Distribution registry image
+  when:
+    - not registry_image_archive_stat.stat.exists
+    - registry_local_image.images | length == 0
+  become: true
+  containers.podman.podman_image:
+    name: "{{ registry_image }}"
+    state: present
+
+- name: Install the registry Quadlet
+  become: true
+  ansible.builtin.copy:
+    dest: "/etc/containers/systemd/{{ registry_unit }}.container"
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=CNCF Distribution registry
+      After=network-online.target
+      Wants=network-online.target
+
+      [Container]
+      Image={{ registry_image }}
+      ContainerName={{ registry_unit }}
+      PublishPort={{ registry_port }}:{{ registry_listen_port }}
+      Volume={{ registry_workdir }}/data:/var/lib/registry:Z
+      Volume={{ registry_workdir }}/config.yml:/etc/distribution/config.yml:ro,Z
+      Volume={{ registry_workdir }}/certs:/certs:ro,Z
+      Volume={{ registry_workdir }}/auth:/auth:ro,Z
+      Environment=OTEL_TRACES_EXPORTER=none
+      Pull=never
+
+      [Service]
+      Restart=always
+      TimeoutStartSec=180
+
+      [Install]
+      WantedBy=multi-user.target
+  register: registry_quadlet
+
+- name: Collect service facts
+  ansible.builtin.service_facts:
+
+- name: Open the registry port in firewalld
+  when:
+    - "'firewalld.service' in ansible_facts.services"
+    - ansible_facts.services['firewalld.service'].state == 'running'
+  become: true
+  ansible.posix.firewalld:
+    port: "{{ registry_port }}/tcp"
+    permanent: true
+    immediate: true
+    state: enabled
+
+- name: Record whether the registry unit must restart
+  ansible.builtin.set_fact:
+    registry_restart: >-
+      {{
+        (registry_quadlet is changed)
+        or (registry_config is changed)
+        or (registry_htpasswd_write is changed)
+        or (registry_tls_generated is changed)
+        or (registry_tls_cert is changed)
+        or (registry_tls_key is changed)
+      }}
+
+- name: Start the registry systemd unit
+  become: true
+  ansible.builtin.systemd:
+    name: "{{ registry_unit }}.service"
+    daemon_reload: true
+    state: "{{ 'restarted' if (registry_restart | bool) else 'started' }}"
+
+- name: Wait until the registry answers on the API
+  ansible.builtin.uri:
+    url: "https://{{ ansible_facts['fqdn'] }}:{{ registry_port }}/v2/"
+    validate_certs: false
+    status_code:
+      - 200
+      - 401
+    timeout: 10
+  register: registry_health
+  retries: 30
+  delay: 2
+  until: registry_health.status | default(0) | int in [200, 401]
+
+- name: Confirm the registry is requiring authentication
+  ansible.builtin.assert:
+    that:
+      - registry_health.status | int == 401
+    fail_msg: >-
+      https://{{ ansible_facts['fqdn'] }}:{{ registry_port }}/v2/
+      returned {{ registry_health.status }}. Expected 401 from htpasswd.

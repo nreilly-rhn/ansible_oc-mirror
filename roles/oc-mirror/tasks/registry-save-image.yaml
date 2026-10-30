@@ -1,0 +1,52 @@
+---
+# Connected-host companion to registry.yaml.
+#
+# Pulls the CNCF Distribution image and saves it under oc_mirror_workdir
+# so connected-mirror.yaml can pack it into the transfer archive.
+# On the disconnected host, registry.yaml loads that tar into root's
+# container storage. If the tar is absent, that task pulls the image
+# instead.
+
+- name: Create oc-mirror workspace
+  become: true
+  ansible.builtin.file:
+    path: "{{ oc_mirror_workdir }}"
+    state: directory
+    mode: "0755"
+    owner: "{{ ansible_user | default(omit) }}"
+    group: "{{ ansible_user | default(omit) }}"
+
+- name: Install podman for the registry image pull
+  become: true
+  ansible.builtin.package:
+    name: podman
+    state: present
+
+- name: Pull the CNCF Distribution registry image
+  become: true
+  containers.podman.podman_image:
+    name: "{{ registry_image }}"
+    state: present
+
+- name: Check for a saved registry image
+  ansible.builtin.stat:
+    path: "{{ registry_image_archive }}"
+  register: registry_image_archive_stat
+
+- name: Save the CNCF Distribution image into the oc-mirror workspace
+  when: not registry_image_archive_stat.stat.exists
+  become: true
+  containers.podman.podman_save:
+    image:
+      - "{{ registry_image }}"
+    dest: "{{ registry_image_archive }}"
+    format: docker-archive
+    force: true
+
+- name: Give the mirror user the image archive
+  become: true
+  ansible.builtin.file:
+    path: "{{ registry_image_archive }}"
+    owner: "{{ ansible_user | default(omit) }}"
+    group: "{{ ansible_user | default(omit) }}"
+    mode: "0644"

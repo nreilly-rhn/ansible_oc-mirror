@@ -1,20 +1,28 @@
 # oc-mirror
 
-Ansible role to mirror OpenShift content with **oc-mirror v2** for connected and disconnected environments.
+Ansible role to mirror OpenShift content with **oc-mirror v2** for connected and
+disconnected environments, using a **CNCF Distribution** registry on the
+disconnected host.
 
 ## Purpose
 
 The role supports a two-phase workflow:
 
-1. **Connected** (`tasks/connected-mirror.yaml`) — On a host with internet access, download OpenShift release content to a local workspace and pack it into a transfer archive.
-2. **Disconnected** (`tasks/quay-mirror.yaml` + `tasks/disconnected-mirror.yaml`) — Install the Quay mirror registry (if needed), restore the workspace from disk or archive, and push content into Quay with `oc-mirror` diskToMirror.
+1. **Connected** (`tasks/connected-mirror.yaml`) — On a host with internet
+   access, download OpenShift release content to a local workspace, save the
+   Distribution registry image for air-gapped transfer, and pack a transfer
+   archive.
+2. **Disconnected** (`tasks/registry.yaml` + `tasks/disconnected-mirror.yaml`) —
+   Install the Distribution registry as a Podman Quadlet / systemd unit if
+   needed, restore the workspace from disk or archive, and push content with
+   `oc-mirror` diskToMirror.
 
 Playbooks:
 
 | Playbook | Inventory group | Task files |
 |----------|-----------------|------------|
 | `playbooks/oc-mirror-create-connected.yaml` | `connected_mirror` | `connected-mirror` |
-| `playbooks/oc-mirror-create-disconnected.yaml` | `disconnected_mirror` | `quay-mirror` (if Quay down), then `disconnected-mirror` |
+| `playbooks/oc-mirror-create-disconnected.yaml` | `disconnected_mirror` | `registry` (if down), then `disconnected-mirror` |
 
 Both groups are children of `oc_mirror` so they share `group_vars/oc_mirror.yml`.
 
@@ -25,11 +33,14 @@ After the disconnected mirror is populated, generate an Agent ISO with the
 ## Requirements
 
 - Ansible 2.14 or later
-- `community.general` (archive/unarchive)
-- Target host packages installed by the role as needed: `podman`, `jq`, `openssl`
-- Outbound HTTPS on the **connected** host (OpenShift clients + image pulls)
-- Outbound HTTPS on the **disconnected** host only to download `mirror-registry` (unless already cached under `/var/tmp`)
-- Vault file with Red Hat / Quay credentials (see [Secrets](#secrets))
+- Collections: `community.general`, `containers.podman`, `ansible.posix`
+- Target host packages installed by the role as needed: `podman`, `httpd-tools`,
+  `openssl`, `jq`
+- Outbound HTTPS on the **connected** host (OpenShift clients + image pulls +
+  `docker.io/library/registry:3`)
+- Disconnected host can load the registry image from the transfer archive
+  (no outbound pull required when the archive includes `registry.tar`)
+- Vault file with Red Hat / registry credentials (see [Secrets](#secrets))
 
 ## Role layout
 
@@ -38,9 +49,10 @@ roles/oc-mirror/
 ├── defaults/main.yml
 ├── vars/main.yaml                 # openshift_version / archive defaults
 ├── tasks/
-│   ├── connected-mirror.yaml      # mirrorToDisk + tarball
+│   ├── connected-mirror.yaml      # mirrorToDisk + registry image + tarball
 │   ├── disconnected-mirror.yaml   # restore workspace + diskToMirror
-│   ├── quay-mirror.yaml           # install mirror-registry / Quay
+│   ├── registry.yaml              # CNCF Distribution as Podman systemd unit
+│   ├── registry-save-image.yaml   # pull/save registry image on connected host
 │   └── install-oc-binaries.yaml   # oc / oc-mirror clients
 └── templates/
     └── ImageSetConfiguration.yaml.j2
@@ -54,7 +66,12 @@ roles/oc-mirror/
 |----------|--------------|--------------------------|-------------|
 | `oc_mirror_workdir` | `/opt/oc-mirror` | same | Workspace for binaries, config, and disk mirror |
 | `oc_mirror_archive_path` | `/var/tmp/oc-mirror.tar.gz` | `/var/tmp/oc-mirror.tar` | Transfer archive (connected → disconnected) |
-| `quay_workdir` | `/opt/quay-mirror` | same | Quay / mirror-registry install root (`--quayRoot`) |
+| `registry_workdir` | `/opt/registry` | same | Distribution install root (config, certs, auth, data) |
+| `registry_port` | `8443` | same | Host port published for the registry |
+| `registry_listen_port` | `5000` | role default | Port inside the container |
+| `registry_image` | `docker.io/library/registry:3` | role default | CNCF Distribution image |
+| `registry_unit` | `registry` | role default | Quadlet / systemd unit basename |
+| `registry_image_archive` | `{{ oc_mirror_workdir }}/registry.tar` | role default | Saved image carried in the transfer archive |
 | `openshift_version` | `4.22.4` | same | Client and ImageSet channel pin |
 | `mirror_set_config` | empty catalogs | operators + `additionalImages` in group_vars | ImageSetConfiguration content |
 
@@ -64,20 +81,21 @@ the group_vars override.
 
 ### Secrets (vault)
 
-Provide via `-e @vault/quay_secrets.yaml` (or equivalent):
+Provide via `--extra-vars @vault/…` for every file under `vault/`
+(or equivalent):
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `redhat_pull_secret` | Yes | Red Hat pull secret JSON used as an authfile |
-| `quay_user` | Yes (disconnected) | Initial Quay user for `mirror-registry install` / `podman login` |
-| `quay_password` | Yes (disconnected) | Initial Quay password |
-| `quay_sslCert` | No | PEM certificate for Quay; if set, `quay_sslKey` must also be set |
-| `quay_sslKey` | No | PEM private key for Quay |
+| `registry_user` | Yes (disconnected) | htpasswd user for registry install / `podman login` |
+| `registry_password` | Yes (disconnected) | htpasswd password |
+| `registry_ssl_cert` | No | PEM certificate for the registry; if set, `registry_ssl_key` must also be set |
+| `registry_ssl_key` | No | PEM private key for the registry |
 
-When both `quay_sslCert` and `quay_sslKey` are set, they are written to
-`{{ quay_workdir }}/ssl.cert` and `ssl.key` and passed to install as
-`--sslCert` / `--sslKey`. If neither is set, mirror-registry generates
-certificates. Setting only one fails the role.
+When both `registry_ssl_cert` and `registry_ssl_key` are set, they are written
+to `{{ registry_workdir }}/certs/domain.crt` and `domain.key`. If neither is
+set, the role generates a self-signed certificate for the host FQDN. Setting
+only one fails the role.
 
 ## Workflows
 
@@ -88,15 +106,18 @@ certificates. Setting only one fails the role.
 3. Write `redhat-auth.json` from `redhat_pull_secret`.
 4. Run `oc-mirror --v2 … file://{{ oc_mirror_workdir }}` when the ImageSet
    config changes (or `force_oc_mirror=true`).
-5. Archive the workspace to `oc_mirror_archive_path` for transfer.
+5. Pull and save the Distribution image to `registry_image_archive`.
+6. Archive the workspace to `oc_mirror_archive_path` for transfer.
 
 Copy the archive to the disconnected host (for example with `scp`) when the
-hosts differ.
+hosts differ. On a shared virtiofs mount, point both hosts at the same
+`oc_mirror_archive_path` instead.
 
-### Disconnected (Quay + diskToMirror)
+### Disconnected (registry + diskToMirror)
 
-The playbook first checks `https://{{ ansible_fqdn }}:8443/health/instance`.
-If Quay is not healthy, it runs `quay-mirror` (download/install mirror-registry).
+The playbook first checks `https://{{ ansible_fqdn }}:{{ registry_port }}/v2/`.
+A live registry with htpasswd returns **401**. Any other status runs
+`registry` (load or pull the image, Quadlet unit, TLS, htpasswd).
 
 Then `disconnected-mirror`:
 
@@ -104,9 +125,9 @@ Then `disconnected-mirror`:
    archive exists, extract `oc_mirror_archive_path` into
    `{{ oc_mirror_workdir | dirname }}` (archive entries are `oc-mirror/…`).
 2. Fail if neither a populated workspace nor the archive is available.
-3. `podman login` to Quay (`--tls-verify=false`), merge Quay + Red Hat auth
-   into `auth.json`.
-4. Run `oc-mirror --v2 --from file://{{ oc_mirror_workdir }} … --dest-tls-verify=false docker://$(hostname -f):8443`.
+3. `podman login` to the registry (`--tls-verify=false`).
+4. Run `oc-mirror --v2 --from file://{{ oc_mirror_workdir }} …
+   --dest-tls-verify=false docker://$(hostname -f):{{ registry_port }}`.
 
 Generated cluster resources (including `idms-oc-mirror.yaml`) land under
 `{{ oc_mirror_workdir }}/working-dir/cluster-resources/` and are consumed by
@@ -121,9 +142,11 @@ Connected:
 
 ```bash
 ansible-playbook playbooks/oc-mirror-create-connected.yaml \
-  -i inventory.yaml \
-  -l registry-ext.lab.naramajac.xyz \
-  -e @vault/quay_secrets.yaml \
+  --inventory inventory.yaml \
+  --limit registry-ext.lab.naramajac.xyz \
+  --extra-vars @vault/redhat_secrets.yaml \
+  --extra-vars @vault/registry_secrets.yaml \
+  --extra-vars @vault/ingress_tls_secrets.yaml \
   --vault-password-file /path/to/.vault_password
 ```
 
@@ -138,9 +161,11 @@ Disconnected:
 
 ```bash
 ansible-playbook playbooks/oc-mirror-create-disconnected.yaml \
-  -i inventory.yaml \
-  -l registry-int.lab.naramajac.xyz \
-  -e @vault/quay_secrets.yaml \
+  --inventory inventory.yaml \
+  --limit registry-int.lab.naramajac.xyz \
+  --extra-vars @vault/redhat_secrets.yaml \
+  --extra-vars @vault/registry_secrets.yaml \
+  --extra-vars @vault/ingress_tls_secrets.yaml \
   --vault-password-file /path/to/.vault_password
 ```
 
@@ -149,12 +174,15 @@ Ensure inventory hosts are listed under `connected_mirror` /
 
 ## Notes
 
-- Disconnected Quay health checks and `podman login` / `oc-mirror` use TLS
-  verification disabled for lab self-signed (or custom) certificates.
+- Registry API: `https://<fqdn>:{{ registry_port }}/v2/` (401 with auth).
+  There is no web UI.
+- `podman login` / `oc-mirror` use TLS verification disabled for lab
+  self-signed (or custom) certificates.
 - Connected mirror only re-runs `oc-mirror` when the ImageSet configuration
-  task reports changed (or `force_oc_mirror` is set).
-- Disk sizing: plan for workspace + archive + Quay storage (often well over
-  200 GiB for a full release mirror).
+  task reports changed (or `force_oc_mirror` is set). The transfer archive is
+  also rebuilt when `registry.tar` is newer than the archive.
+- Disk sizing: plan for workspace + archive + registry storage (often well
+  over 200 GiB for a full release mirror).
 - oc-mirror v2 registry paths used by the Agent ISO role:
   - release images → `…/openshift/release-images`
   - release payload → `…/openshift/release`
@@ -188,7 +216,7 @@ Playbook run took 0 days, 1 hours, 59 minutes, 3 seconds
 
 Run oc-mirror (diskToMirror) .......................................... ~97m
 Restore workspace from transfer archive ............................... ~11m
-Install Quay Mirror Registry .......................................... ~4m
+Install registry ...................................................... ~4m
 ```
 
 ## License

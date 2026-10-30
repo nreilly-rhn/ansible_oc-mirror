@@ -24,13 +24,6 @@
       - "{{ installed_oc_version }}"
       - "{{ openshift_version }}"
 
-# - name: Set update flag if OpenShift client is incorrect
-#   ansible.builtin.set_fact:
-#     update_oc_mirror: true
-#   when: >-
-#     oc_version.rc == 0 and
-#     openshift_version == installed_oc_version
-
 - name: Remove oc-mirror binary if OpenShift client is incorrect
   when: >-
     oc_version.rc == 0 and
@@ -74,9 +67,3 @@
       loop:
         - oc-mirror
         - openshift-client-linux
-
-- name: Download the mirror-registry binary
-  ansible.builtin.get_url:
-    url: "{{ mirror_registry_url }}"
-    dest: "{{ oc_mirror_workdir }}/mirror-registry.tar.gz"
-    mode: "0644"

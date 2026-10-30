@@ -131,9 +131,9 @@
       - podman
       - login
       - --username
-      - "{{ quay_user }}"
+      - "{{ registry_user }}"
       - --password
-      - "{{ quay_password }}"
+      - "{{ registry_password }}"
       - --authfile
       - "{{ ansible_facts.user_dir }}/.dockercfg"
       - --tls-verify=false

@@ -3,7 +3,7 @@
 # /usr/bin/ansible-playbook \
 #   playbooks/oc-mirror-create-disconnected.yaml \
 #   -i inventory.yaml \
-#   -e @vault/quay_secrets.yaml \
+#   -e @vault/registry_secrets.yaml \
 #   --vault-password-file \
 #   .vault_password
 ######################################################
@@ -11,18 +11,21 @@
 - name: Create Mirror
   hosts: disconnected_mirror
   tasks:
-    - name: Check if mirror is up
+    - name: Check if the registry is up
       ansible.builtin.uri:
-        url: https://{{ ansible_facts['fqdn'] }}:8443/health/instance
+        url: https://{{ ansible_facts['fqdn'] }}:{{ registry_port }}/v2/
         validate_certs: false
+        status_code:
+          - 200
+          - 401
       register: url_result
-      ignore_errors: true
+      failed_when: false
 
-    - name: Install Quay
+    - name: Install registry
       ansible.builtin.include_role:
         name: "../roles/oc-mirror"
-        tasks_from: quay-mirror
-      when: url_result.status != 200
+        tasks_from: registry
+      when: url_result.status | default(0) | int != 401
 
     - name: Populate Mirror
       ansible.builtin.include_role:

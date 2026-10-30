@@ -11,7 +11,7 @@ connected_mirror:
   hosts:
     registry-ext.example.com:
       ansible_host: 172.16.0.225
-      ansible_user: aap
+      ansible_user: ansible
       ansible_ssh_private_key_file: ~/.ssh/id_ed25519
       ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
@@ -19,7 +19,7 @@ disconnected_mirror:
   hosts:
     registry-int.example.com:
       ansible_host: 172.16.0.226
-      ansible_user: aap
+      ansible_user: ansible
       ansible_ssh_private_key_file: ~/.ssh/id_ed25519
       ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
@@ -28,3 +28,7 @@ disconnected_mirror:
 openshift_agent_iso:
   hosts:
     registry-int.example.com:
+      ansible_host: 172.16.0.226
+      ansible_user: ansible
+      ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+      ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"

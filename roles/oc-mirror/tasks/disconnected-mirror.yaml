@@ -1,4 +1,8 @@
 ---
+# Restore the oc-mirror workspace if needed, log in to the CNCF
+# Distribution registry, and run oc-mirror v2 diskToMirror.
+# Pair with tasks/registry.yaml for registry install.
+
 - name: Check whether oc-mirror workspace is populated
   ansible.builtin.stat:
     path: "{{ oc_mirror_workdir }}/ImageSetConfiguration.yaml"
@@ -28,11 +32,15 @@
     - not oc_mirror_workspace.stat.exists
     - oc_mirror_archive.stat.exists
 
+- name: Set registry endpoint
+  ansible.builtin.set_fact:
+    registry_endpoint: "{{ ansible_facts['fqdn'] }}:{{ registry_port }}"
+
 - name: Login to the Mirror
   containers.podman.podman_login:
-    registry: "{{ ansible_facts['fqdn'] }}:8443"
-    username: "{{ quay_user }}"
-    password: "{{ quay_password }}"
+    registry: "{{ registry_endpoint }}"
+    username: "{{ registry_user }}"
+    password: "{{ registry_password }}"
     authfile: "{{ ansible_facts.user_dir }}/.dockercfg"
     tlsverify: false
 
@@ -48,7 +56,7 @@
       - --authfile
       - "{{ ansible_facts.user_dir }}/.dockercfg"
       - --dest-tls-verify=false
-      - "docker://{{ ansible_facts.fqdn }}:8443"
+      - "docker://{{ registry_endpoint }}"
   register: mirror_task
   async: 7200
   poll: 60

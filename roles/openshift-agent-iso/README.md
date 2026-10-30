@@ -21,7 +21,8 @@ Playbook:
 |----------|-----------------|-----------|
 | `playbooks/openshift-agent-create-iso.yaml` | `openshift_agent_iso` | `create-iso` |
 
-Typical target: `registry-int.lab.naramajac.xyz` (has Quay + oc-mirror workspace).
+Typical target: `registry-int.lab.naramajac.xyz` (has the mirror registry +
+oc-mirror workspace).
 
 ## Requirements
 
@@ -29,7 +30,7 @@ Typical target: `registry-int.lab.naramajac.xyz` (has Quay + oc-mirror workspace
 - Collections: `community.crypto` (mirror TLS), `ansible.utils` (CIDR helpers)
 - On the target host: `podman`, `jq`, and `oc` (`openshift_oc_bin`, often
   `/opt/oc-mirror/oc`)
-- Vault / extra-vars: `redhat_pull_secret`, `quay_user`, `quay_password`
+- Vault / extra-vars: `redhat_pull_secret`, `registry_user`, `registry_password`
 - Network access from the target to `openshift_mirror_registry`
 - Populated oc-mirror workspace (for IDMS under
   `…/working-dir/cluster-resources/`) when using auto IDMS load
@@ -57,10 +58,12 @@ roles/openshift-agent-iso/
 
 ```bash
 ansible-playbook playbooks/openshift-agent-create-iso.yaml \
-  -i inventory.yaml \
-  -l registry-int.lab.naramajac.xyz \
-  -e @vault/quay_secrets.yaml \
-  -e openshift_ssh_key="$(cat ~/.ssh/id_ed25519.pub)" \
+  --inventory inventory.yaml \
+  --limit registry-int.lab.naramajac.xyz \
+  --extra-vars @vault/redhat_secrets.yaml \
+  --extra-vars @vault/registry_secrets.yaml \
+  --extra-vars @vault/ingress_tls_secrets.yaml \
+  --extra-vars openshift_ssh_key="$(cat ~/.ssh/id_ed25519.pub)" \
   --vault-password-file /path/to/.vault_password
 ```
 
@@ -90,7 +93,7 @@ the persistent copies in the workdir root for edits/re-runs.
 | `openshift_agent_iso_workdir` | `/opt/openshift-agent-iso` | Binary, auth, persistent configs |
 | `openshift_agent_iso_install_dir` | `…/install` | Consumed config copies + generated ISO |
 | `openshift_version` | `4.22.4` | Used in default release image tag |
-| `openshift_mirror_registry` | `registry-int.lab.naramajac.xyz:8443` | Internal Quay host:port (no scheme) |
+| `openshift_mirror_registry` | `registry-int.lab.naramajac.xyz:8443` | Internal mirror host:port (no scheme) |
 | `openshift_release_image` | `{{ mirror }}/openshift/release-images:{{ version }}-x86_64` | oc-mirror v2 release image for extract |
 | `openshift_oc_bin` | `oc` | Path to `oc` (group_vars often sets `/opt/oc-mirror/oc`) |
 | `openshift_topology` | auto | Detected from `openshift_hosts` count — do not set manually |
@@ -317,13 +320,16 @@ openshift_hosts:
 Provide via vault, for example:
 
 ```bash
--e @vault/quay_secrets.yaml --vault-password-file …
+--extra-vars @vault/redhat_secrets.yaml \
+--extra-vars @vault/registry_secrets.yaml \
+--extra-vars @vault/ingress_tls_secrets.yaml \
+--vault-password-file …
 ```
 
 | Variable | Used for |
 |----------|----------|
 | `redhat_pull_secret` | Satisfies role assert / seed auth |
-| `quay_user` / `quay_password` | `podman login` → mirror-only `pullSecret` |
+| `registry_user` / `registry_password` | `podman login` → mirror-only `pullSecret` |
 | `openshift_ingress_tls_cert` | Optional PEM cert chain for default ingress (leaf first) |
 | `openshift_ingress_tls_key` | Optional unencrypted PEM private key |
 | `openshift_ingress_ca_cert` | Optional PEM CA: Proxy `trustedCA` post-install **and** appended to install-config `additionalTrustBundle` |
